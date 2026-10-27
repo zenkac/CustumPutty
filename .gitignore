@@ -1,0 +1,31 @@
+# Build products, caches, and owned test outputs
+**/bin/
+**/obj/
+artifacts/
+.build-home/
+vendor/.packages/
+.test-venv/
+__pycache__/
+*.pyc
+.vs/
+.idea/
+*.user
+*.suo
+
+# Local connection information and credentials must never be published.
+settings.json
+settings.json.*
+*.log
+logs/
+*.pem
+*.ppk
+*.pfx
+*.key
+.env
+.env.*
+!.env.example
+
+# Executables are release assets, except the official embedded PuTTY binary.
+*.exe
+!vendor/putty.exe
+*.zip

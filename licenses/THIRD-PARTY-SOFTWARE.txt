@@ -1,0 +1,20 @@
+EquipLink 1.7.0 — third-party software
+
+PuTTY 0.85 — MIT. PuTTY-LICENCE.txt
+https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.85.html
+Microsoft .NET / Windows Desktop runtime — MIT and third-party notices.
+DOTNET-LICENSE.txt / DOTNET-DESKTOP-LICENSE.txt / DOTNET-THIRD-PARTY-NOTICES.txt
+https://github.com/dotnet
+SSH.NET 2026.0.0 — MIT. SSH.NET-LICENSE.txt
+https://github.com/sshnet/SSH.NET/releases/tag/2026.0.0
+License source: https://raw.githubusercontent.com/sshnet/SSH.NET/2026.0.0/LICENSE
+BouncyCastle.Cryptography 2.7.0 — MIT. BOUNCYCASTLE-LICENSE.txt
+https://www.bouncycastle.org/
+Microsoft.Extensions.Logging.Abstractions 8.0.3 and
+Microsoft.Extensions.DependencyInjection.Abstractions 8.0.2 — MIT and notices.
+Both packages contain identical license/notice files, included as
+MICROSOFT-EXTENSIONS-LICENSE.txt / MICROSOFT-EXTENSIONS-NOTICES.txt
+https://github.com/dotnet
+
+Xming/VcXsrv are not distributed in this package; use your existing installation.
+Local integration-test servers, Python and test keys are not included.
