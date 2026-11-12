@@ -1,4 +1,4 @@
-EquipLink 1.7.0 — third-party software
+EquipLink 1.8.0 — third-party software
 
 PuTTY 0.85 — MIT. PuTTY-LICENCE.txt
 https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.85.html

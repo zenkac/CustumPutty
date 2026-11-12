@@ -33,7 +33,7 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
         refreshButton=Ui.AsyncToolButton("새로고침",RefreshBothAsync,"내 PC와 서버 목록 새로고침 · F5");
         uploadButton=Ui.AsyncToolButton("↑ 업로드",UploadSelectedAsync,"선택한 내 PC 파일 / 폴더를 서버로 전송");
         downloadButton=Ui.ToolButton("↓ 다운로드",DownloadSelected,"선택한 서버 파일 / 폴더를 현재 내 PC 폴더로 전송");
-        folderButton=Ui.AsyncToolButton("새 폴더",CreateRemoteFolderAsync,"현재 서버 경로에 폴더 만들기");
+        folderButton=Ui.AsyncToolButton("새 폴더",()=>activeRemote?CreateRemoteFolderAsync():CreateLocalFolderAsync(),"현재 위치에 폴더 만들기");
         transferButton=Ui.ToolButton("전송창",()=>SetTransfersVisible(transferContent.Visibility!=Visibility.Visible),"진행 상황과 전송 히스토리 보기");
         uploadButton.Name="FtpUpload";downloadButton.Name="FtpDownload";folderButton.Name="FtpNewFolder";transferButton.Name="FtpTransfers";connectButton.Name="FtpConnect";
         var toolbar=new WrapPanel{Margin=new Thickness(10,7,8,7),VerticalAlignment=VerticalAlignment.Center};
@@ -41,7 +41,7 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
         foreach(var button in new[]{connectButton,disconnectButton,refreshButton,uploadButton,downloadButton,folderButton,transferButton})toolbar.Children.Add(button);
         iconViewButton=Ui.ToolButton("▦ 아이콘",()=>SetFileView(true));iconViewButton.Name="FtpIconView";
         listViewButton=Ui.ToolButton("☷ 목록",()=>SetFileView(false));listViewButton.Name="FtpListView";
-        toolbar.Children.Add(iconViewButton);toolbar.Children.Add(listViewButton);Children.Add(new Border{Background=Ui.Brush("#17212D"),BorderThickness=new Thickness(0,0,0,1),BorderBrush=Ui.Brush("#2A394A"),Child=toolbar});
+        toolbar.Children.Add(iconViewButton);toolbar.Children.Add(listViewButton);AddExplorerActions(toolbar);Children.Add(new Border{Background=Ui.Brush("#17212D"),BorderThickness=new Thickness(0,0,0,1),BorderBrush=Ui.Brush("#2A394A"),Child=toolbar});
 
         var body=new Grid();body.ColumnDefinitions.Add(new(){Width=new GridLength(202),MinWidth=160,MaxWidth=330});body.ColumnDefinitions.Add(new(){Width=new GridLength(4)});body.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star)});
         var navigation=new Grid{Margin=new Thickness(10,10,8,8)};foreach(var height in new[]{GridLength.Auto,GridLength.Auto,new GridLength(.9,GridUnitType.Star),GridLength.Auto,new GridLength(1,GridUnitType.Star)})navigation.RowDefinitions.Add(new(){Height=height});
@@ -49,11 +49,13 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
         var siteHeading=new DockPanel();var siteActions=Ui.Row(Ui.ToolButton("＋",AddSite,"FTP 사이트 추가"),Ui.ToolButton("•••",ShowSiteMenu,"선택한 FTP 사이트 편집 / 삭제"));DockPanel.SetDock(siteActions,Dock.Right);siteHeading.Children.Add(siteActions);var siteTitle=Ui.Text("사이트맵",12,"#DCE5F0",true);siteTitle.VerticalAlignment=VerticalAlignment.Center;siteHeading.Children.Add(siteTitle);navigation.Children.Add(siteHeading);
         siteSearch.MinHeight=29;siteSearch.FontSize=11;siteSearch.Margin=new Thickness(0,6,0,6);siteSearch.ToolTip="사이트 이름 · IP 검색";siteSearch.TextChanged+=(_,_)=>RefreshSites();navigation.Children.Add(siteSearch);SetRow(siteSearch,1);
         navigation.Children.Add(sites);SetRow(sites,2);sites.MouseDoubleClick+=async (_,_)=>{if(sites.SelectedItem is ListBoxItem item&&item.IsMouseOver&&item.Tag is FtpSite site)await ConnectSavedSafeAsync(site);};sites.KeyDown+=async (_,e)=>{if(e.Key==Key.Enter&&SelectedSite!=null){e.Handled=true;await ConnectSavedSafeAsync(SelectedSite);}};
-        var treeHeading=Ui.Text("서버 폴더",11,"#8797AA",true);treeHeading.Margin=new Thickness(4,13,0,7);navigation.Children.Add(treeHeading);SetRow(treeHeading,3);
+        var treeHeading=BuildTreeChoice();navigation.Children.Add(treeHeading);SetRow(treeHeading,3);
         folderTree=new FtpFolderTree(session,NavigateRemoteSafeAsync){Name="FtpDirectoryTree"};navigation.Children.Add(folderTree);SetRow(folderTree,4);
+        localFolderTree=new LocalFolderTree(folderTree.ItemContainerStyle,NavigateLocalSafeAsync){Name="FtpLocalDirectoryTree",Visibility=Visibility.Collapsed};navigation.Children.Add(localFolderTree);SetRow(localFolderTree,4);
         body.Children.Add(new Border{Background=Ui.Brush("#17212D"),Child=navigation});var navSplitter=Splitter();body.Children.Add(navSplitter);SetColumn(navSplitter,1);
-        var files=new Grid();files.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star),MinWidth=150});files.ColumnDefinitions.Add(new(){Width=new GridLength(5)});files.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star),MinWidth=150});
-        files.Children.Add(BuildSourcePane());var fileSplitter=Splitter();files.Children.Add(fileSplitter);SetColumn(fileSplitter,1);var remotePane=BuildFilePane(true);files.Children.Add(remotePane);SetColumn(remotePane,2);body.Children.Add(files);SetColumn(files,2);Children.Add(body);SetRow(body,1);
+        filePaneHost.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star),MinWidth=150});filePaneHost.ColumnDefinitions.Add(new(){Width=new GridLength(5)});filePaneHost.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star),MinWidth=150});
+        sourcePane=BuildSourcePane();serverPane=BuildFilePane(true);paneSplitter=Splitter();filePaneHost.Children.Add(sourcePane);filePaneHost.Children.Add(paneSplitter);SetColumn(paneSplitter,1);filePaneHost.Children.Add(serverPane);body.Children.Add(filePaneHost);SetColumn(filePaneHost,2);Children.Add(body);SetRow(body,1);
+        foreach(var pane in new[]{sourcePane,serverPane}){pane.PreviewMouseDown+=(_,_)=>ActivatePane(pane==serverPane);pane.GotKeyboardFocus+=(_,_)=>{if(activeRemote!=(pane==serverPane))ActivatePane(pane==serverPane);};}ApplyExplorerLayout();
 
         transferDrawer=new Border{Background=Ui.Brush("#17212D"),BorderBrush=Ui.Brush("#2A394A"),BorderThickness=new Thickness(0,1,0,0)};
         var drawer=new Grid();drawer.RowDefinitions.Add(new(){Height=GridLength.Auto});drawer.RowDefinitions.Add(new(){Height=GridLength.Auto});
@@ -83,12 +85,16 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
         queue.ConfirmOverwrite=ConfirmConflictAsync;ConfigureFileView();InstallDragDrop();
         foreach(var item in queue.Items.Where(x=>!x.IsPending))observedFinished.Add(item.Id);
         RefreshSites();OnSessionChanged();SwitchTransferView(false);UpdateTransferControls();
-        Loaded+=async (_,_)=>{if(localPath=="")await NavigateLocalSafeAsync(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));};
+        Loaded+=async (_,_)=>{if(localPath==""&&!localLoading)await NavigateLocalSafeAsync(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));};
     }
 
     private FtpSite? SelectedSite=>(sites.SelectedItem as ListBoxItem)?.Tag as FtpSite;
     private static GridSplitter Splitter()=>new(){Background=Ui.Brush("#2A394A"),HorizontalAlignment=HorizontalAlignment.Stretch,VerticalAlignment=VerticalAlignment.Stretch,ResizeDirection=GridResizeDirection.Columns,ResizeBehavior=GridResizeBehavior.PreviousAndNext,ShowsPreview=true};
-    private static ListBox FilesList()=>new(){Background=Ui.Brush("#111923"),Foreground=Ui.Brush("#DCE5F0"),SelectionMode=SelectionMode.Extended,Margin=new Thickness(4,0,4,0),Padding=new Thickness(0),HorizontalContentAlignment=HorizontalAlignment.Stretch};
+    private static ListBox FilesList()
+    {
+        var list=new ListBox{Background=Ui.Brush("#111923"),Foreground=Ui.Brush("#DCE5F0"),SelectionMode=SelectionMode.Extended,Margin=new Thickness(4,0,4,0),Padding=new Thickness(0),HorizontalContentAlignment=HorizontalAlignment.Stretch};
+        list.Resources[SystemColors.ControlBrushKey]=Ui.Brush("#111923");return list;
+    }
     private FrameworkElement BuildFilePane(bool remote)
     {
         var pane=new Grid{Background=Ui.Brush("#111923")};foreach(var height in new[]{GridLength.Auto,GridLength.Auto,GridLength.Auto,GridLength.Auto,new GridLength(1,GridUnitType.Star),GridLength.Auto})pane.RowDefinitions.Add(new(){Height=height});
@@ -99,16 +105,16 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
         }
         var path=new DockPanel{Margin=new Thickness(8,0,8,8)};var up=Ui.AsyncToolButton("↑",remote?()=>NavigateRemoteSafeAsync(FtpPaths.Parent(session.CurrentPath)):()=>NavigateLocalSafeAsync(Directory.GetParent(localPath)?.FullName??localPath),"상위 폴더");up.Margin=new Thickness(0,0,4,0);DockPanel.SetDock(up,Dock.Left);path.Children.Add(up);var input=remote?remoteAddress:localAddress;input.FontSize=11;input.MinHeight=30;input.ToolTip="경로를 직접 입력하고 Enter";path.Children.Add(input);pane.Children.Add(path);SetRow(path,1);
         var filter=BuildFileSearch(remote);pane.Children.Add(filter);SetRow(filter,2);
-        var header=FileRow("이름","크기","수정한 날짜",false,true);var headerBorder=new Border{Child=header,Padding=new Thickness(13,6,13,6),Background=Ui.Brush("#17212D"),BorderBrush=Ui.Brush("#2A394A"),BorderThickness=new Thickness(0,1,0,1)};fileHeaders.Add(headerBorder);pane.Children.Add(headerBorder);SetRow(headerBorder,3);
+        var headerBorder=new Border{Child=BuildExplorerHeader(remote),Padding=new Thickness(9,0,13,0),Background=Ui.Brush("#17212D"),BorderBrush=Ui.Brush("#2A394A"),BorderThickness=new Thickness(0,1,0,1)};fileHeaders.Add(headerBorder);pane.Children.Add(headerBorder);SetRow(headerBorder,3);
         var list=remote?remoteFiles:localFiles;var selectionLayer=new System.Windows.Documents.AdornerDecorator{Child=list};pane.Children.Add(selectionLayer);SetRow(selectionLayer,4);var count=remote?remoteCount:localCount;count.Margin=new Thickness(12,6,12,6);count.TextWrapping=TextWrapping.NoWrap;count.TextTrimming=TextTrimming.CharacterEllipsis;pane.Children.Add(count);SetRow(count,5);return pane;
     }
-    private static Grid FileRow(string name,string size,string modified,bool folder,bool heading=false)
+    private Grid FileRow(string name,string size,string modified,bool folder,bool remote)
     {
-        var row=new Grid();row.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star),MinWidth=45});row.ColumnDefinitions.Add(new(){Width=new GridLength(67)});row.ColumnDefinitions.Add(new(){Width=new GridLength(105)});
-        var label=Ui.Text(name,heading?10:11,heading?"#8797AA":"#DCE5F0",heading);label.TextWrapping=TextWrapping.NoWrap;label.TextTrimming=TextTrimming.CharacterEllipsis;
-        if(heading)row.Children.Add(label);else{var namePanel=new DockPanel();var glyph=Ui.Glyph(folder?"\uE8B7":"\uE8A5",13);glyph.Foreground=Ui.Brush(folder?"#5DD6BE":"#8797AA");glyph.Margin=new Thickness(0,0,8,0);DockPanel.SetDock(glyph,Dock.Left);namePanel.Children.Add(glyph);namePanel.Children.Add(label);row.Children.Add(namePanel);}
-        var sizeText=Ui.Text(size,10,"#8797AA");sizeText.TextWrapping=TextWrapping.NoWrap;sizeText.HorizontalAlignment=HorizontalAlignment.Right;sizeText.Margin=new Thickness(4,0,9,0);row.Children.Add(sizeText);SetColumn(sizeText,1);
-        var time=Ui.Text(modified,10,"#8797AA");time.TextWrapping=TextWrapping.NoWrap;time.HorizontalAlignment=HorizontalAlignment.Right;row.Children.Add(time);SetColumn(time,2);return row;
+        var row=(remote?remoteColumns:localColumns).Row();row.MinHeight=23;
+        var label=Ui.Text(name,11,"#DCE5F0");label.TextWrapping=TextWrapping.NoWrap;label.TextTrimming=TextTrimming.CharacterEllipsis;label.VerticalAlignment=VerticalAlignment.Center;
+        var namePanel=new DockPanel{Margin=new Thickness(7,0,8,0)};var glyph=ShellFileIcons.Create(name,folder,16);glyph.Margin=new Thickness(0,0,8,0);glyph.VerticalAlignment=VerticalAlignment.Center;DockPanel.SetDock(glyph,Dock.Left);namePanel.Children.Add(glyph);namePanel.Children.Add(label);row.Children.Add(namePanel);
+        string[] values=[size,ShellFileIcons.TypeName(name,folder),modified];
+        for(int i=0;i<values.Length;i++){var text=Ui.Text(values[i],10,"#8797AA");text.TextWrapping=TextWrapping.NoWrap;text.TextTrimming=TextTrimming.CharacterEllipsis;text.Margin=new Thickness(8,0,8,0);text.VerticalAlignment=VerticalAlignment.Center;if(i==0)text.TextAlignment=TextAlignment.Right;row.Children.Add(text);SetColumn(text,i+1);}return row;
     }
     public void RefreshSites()
     {
@@ -153,7 +159,7 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
                 return list.OrderByDescending(x=>x.IsDirectory).ThenBy(x=>x.Name,StringComparer.OrdinalIgnoreCase).ToArray();
             });
             if(disposed||generation!=localGeneration)return;bool changed=!string.Equals(localPath,resolved,StringComparison.OrdinalIgnoreCase);localPath=resolved;localAddress.Text=resolved;localEntries=entries;
-            if(changed)localFilter.Clear();RenderFiles(false);
+            if(changed)localFilter.Clear();RenderFiles(false);localFolderTree.Sync(localPath,entries.Where(x=>x.IsDirectory).Select(x=>x.FullPath));
         }
         finally{if(generation==localGeneration){localLoading=false;UpdateButtons();}}
     }
@@ -178,7 +184,7 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
     {
         if(disposed)return;bool ready=session.IsConnected&&!session.IsBusy&&!deleting;
         connectButton.IsEnabled=!session.IsBusy;disconnectButton.IsEnabled=session.IsConnected||session.IsBusy;refreshButton.IsEnabled=!session.IsBusy&&!localLoading;uploadButton.IsEnabled=ready&&!localLoading;downloadButton.IsEnabled=ready&&remoteFiles.SelectedItems.Cast<object>().Any(x=>x is ListBoxItem{Tag:FtpEntry});folderButton.IsEnabled=ready;remoteAddress.IsEnabled=ready;remoteFiles.IsEnabled=ready;
-        localFiles.IsEnabled=!localLoading&&!deleting;localAddress.IsEnabled=!deleting;
+        localFiles.IsEnabled=!localLoading&&!deleting;localAddress.IsEnabled=!deleting;folderButton.IsEnabled=activeRemote?ready:!localLoading&&!deleting&&localPath.Length>0&&!terminalMode;
         if(deleting){connectButton.IsEnabled=false;disconnectButton.IsEnabled=false;refreshButton.IsEnabled=false;}
         UpdateFileCounts();UpdateDeleteButtons();
     }
@@ -211,16 +217,16 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
     {
         DownloadEntries(remoteFiles.SelectedItems.OfType<ListBoxItem>().Select(x=>x.Tag).OfType<FtpEntry>().ToArray());
     }
-    private void DownloadEntries(FtpEntry[] selected)
+    private void DownloadEntries(FtpEntry[] selected,string? destination=null)
     {
-        if(terminalMode){terminalHelper?.ChooseServerFiles(selected,session.CurrentPath);return;}
+        if(terminalMode&&destination==null){terminalHelper?.ChooseServerFiles(selected,session.CurrentPath);return;}
         if(!session.IsConnected||session.IsBusy||deleting||localPath.Length==0||selected.Length==0)return;string password=session.PasswordForTransfer();
         try
         {
             foreach(var entry in selected)
             {
                 if(entry.IsLink)throw new ArgumentException("심볼릭 링크는 직접 다운로드하지 않습니다. 실제 대상 파일 또는 폴더를 선택해 주세요.");
-                string target=Path.Combine(localPath,FtpPaths.SafeLocalName(entry.Name));
+                string target=Path.Combine(destination??localPath,FtpPaths.SafeLocalName(entry.Name));
                 if(entry.IsDirectory)queue.EnqueueDownloadDirectory(session.Site!,password,entry.FullPath,target);else queue.EnqueueDownload(session.Site!,password,entry.FullPath,target,entry.Size);
             }
             SwitchTransferView(false);SetTransfersVisible(true);
@@ -285,5 +291,5 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
     }
     private static async Task RunSafeAsync(Func<Task> action){try{await action();}catch(OperationCanceledException){}catch(Exception error){Ui.Error(error);}}
     internal Task NavigateLocalForTestAsync(string path)=>NavigateLocalAsync(path);
-    public void Dispose(){disposed=true;fileLifetime.Cancel();foreach(var selector in rectangleSelectors)selector.Dispose();activeDrag?.Dispose();queue.ConfirmOverwrite=null;session.Changed-=OnSessionChanged;queue.Changed-=OnQueueChanged;folderTree.Dispose();}
+    public void Dispose(){disposed=true;fileLifetime.Cancel();foreach(var selector in rectangleSelectors)selector.Dispose();ClearDropFeedback();activeDrag?.Dispose();queue.ConfirmOverwrite=null;session.Changed-=OnSessionChanged;queue.Changed-=OnQueueChanged;folderTree.Dispose();localFolderTree.Dispose();}
 }

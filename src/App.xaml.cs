@@ -40,6 +40,12 @@ public partial class App : Application
                 Directory.CreateDirectory(AppPaths.Root);ShutdownMode=ShutdownMode.OnExplicitShutdown;
                 await FtpFileToolsTests.RunAsync();Shutdown(0);return;
             }
+            if(e.Args.Contains("--ftp-explorer-test"))
+            {
+                AppPaths.OverrideRoot=Path.GetFullPath(e.Args.ElementAtOrDefault(1)??"ftp-explorer-test-data");
+                Directory.CreateDirectory(AppPaths.Root);ShutdownMode=ShutdownMode.OnExplicitShutdown;
+                await FtpExplorerTests.RunAsync();Shutdown(0);return;
+            }
             if(e.Args.Contains("--ftp-drag-test"))
             {
                 AppPaths.OverrideRoot=Path.GetFullPath(e.Args.ElementAtOrDefault(1)??"ftp-drag-test-data");

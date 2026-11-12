@@ -5,7 +5,7 @@ PuTTY 기반 Telnet/SSH, Xming 실행 연동, FTP 파일 관리, SSH Browser를 
 
 ## 다운로드
 
-**[Windows x64 실행파일 ZIP 다운로드](https://github.com/zenkac/CustumPutty/releases/latest/download/EquipLink-v1.7.0-Windows-x64.zip)** · [릴리스 목록](https://github.com/zenkac/CustumPutty/releases)
+**[Windows x64 실행파일 ZIP 다운로드](https://github.com/zenkac/CustumPutty/releases/download/v1.8.0/EquipLink-v1.8.0-Windows-x64.zip)** · [릴리스 목록](https://github.com/zenkac/CustumPutty/releases)
 
 1. ZIP을 내려받아 압축을 풉니다.
 2. 기존 EquipLink가 실행 중이면 종료합니다.
@@ -27,14 +27,17 @@ cd CustumPutty
 - 터미널 탭, 가로·세로 분할, 세 가지 테마, 명령 입력창
 - 기존 Xming/XLaunch 설치 연동과 X11 명령 준비
 - 일반 FTP, 사이트맵, 경로 입력·폴더 탐색, 업로드·다운로드·전송 이력
-- 아이콘/목록 보기, 현재 폴더 파일명 검색, Ctrl/Shift 및 드래그 영역 선택
+- Windows 파일 아이콘, 정렬·열 너비 조절이 가능한 목록, 내 PC/서버 폴더 트리
+- PC/서버 좌우 위치 전환, 선택한 위치를 넓게 보는 한 창/두 창 보기
+- 양쪽 창 사이 파일·폴더 드래그 전송, 목적지 폴더 강조와 전송 방향 표시
+- 아이콘/목록 보기, 현재 폴더 검색, Ctrl/Shift 및 드래그 영역 선택
 - Windows 탐색기와 드래그 전송, 파일 더블클릭 다운로드, 중복 파일 확인
 - 영구 삭제 경고 팝업, 파일·폴더 삭제
 - SSH 연결의 SFTP Browser
 
 ## 경유 설비에서 FTP 사용
 
-`내 PC → Telnet 설비1 → Telnet 설비2`처럼 접속할 때에는 FTP 왼쪽의 **내 PC** 선택창에서
+`내 PC → Telnet 설비1 → Telnet 설비2`처럼 접속할 때에는 FTP 화면의 **내 PC** 선택창에서
 해당 **터미널 FTP** 탭을 선택할 수 있습니다.
 
 `ftp -i`, `lcd`, `cd`, `put/mput/get/mget` 명령을 기존 터미널의 명령 입력창에 준비합니다.
@@ -57,7 +60,7 @@ cd CustumPutty
 .\build.ps1 -Portable
 ```
 
-배포용 결과: `artifacts\portable-v1.7.0\EquipLink.exe`
+배포용 결과: `artifacts\portable-v1.8.0\EquipLink.exe`
 
 `src/packages.lock.json`에 의존성 버전이 기록되어 있습니다.
 `vendor/nuget`에는 앱이 사용하는 네 개의 NuGet 패키지가 포함되어 있습니다.
@@ -82,7 +85,7 @@ $env:EQUIPLINK_TEST_PYTHON = (Resolve-Path .\.test-venv\Scripts\python.exe).Path
 
 시험 결과와 생성 데이터는 Git에서 제외되는 `artifacts` 아래에 저장됩니다.
 공개 소스의 SSH 시험 경로는 개인 PC 경로 대신 환경변수를 사용하도록 정리했습니다.
-v1.7.0 실행파일은 기존 배포 검증본이며, ZIP 안에 검증 결과와 SHA-256이 포함되어 있습니다.
+ZIP 안에 최종 실행파일의 검증 결과와 SHA-256이 포함되어 있습니다.
 실제 회사 설비·방화벽·경유 설비의 FTP 호환성은 현장에서 확인해야 합니다.
 
 ## 구성과 라이선스 고지

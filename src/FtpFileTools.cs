@@ -51,10 +51,10 @@ public sealed partial class FtpWorkspace
             var selected=list.SelectedItems.OfType<ListBoxItem>().Select(x=>EntryPath(x.Tag)).Where(x=>x!=null).ToHashSet(StringComparer.Ordinal);
             list.Items.Clear();
             if(remote&&session.IsConnected)
-                foreach(var e in session.Entries.Where(x=>x.Name.Contains(query,StringComparison.OrdinalIgnoreCase)).OrderByDescending(x=>x.IsDirectory).ThenBy(x=>x.Name,StringComparer.OrdinalIgnoreCase))
+                foreach(var e in SortEntries(session.Entries.Where(x=>x.Name.Contains(query,StringComparison.OrdinalIgnoreCase)),true,x=>x.IsDirectory,x=>x.Name,x=>x.Size,x=>x.Modified))
                     list.Items.Add(FileItem(e,e.Name+(e.IsLink?" ↗":""),e.IsDirectory,e.Size,e.Modified?.ToLocalTime().ToString("yy-MM-dd HH:mm")??"—",e.FullPath+(e.IsLink?"\n심볼릭 링크":"")));
             else if(!remote)
-                foreach(var e in localEntries.Where(x=>x.Name.Contains(query,StringComparison.OrdinalIgnoreCase)))list.Items.Add(FileItem(e,e.Name,e.IsDirectory,e.Size,e.Modified.ToString("yy-MM-dd HH:mm"),e.FullPath));
+                foreach(var e in SortEntries(localEntries.Where(x=>x.Name.Contains(query,StringComparison.OrdinalIgnoreCase)),false,x=>x.IsDirectory,x=>x.Name,x=>x.Size,x=>x.Modified))list.Items.Add(FileItem(e,e.Name,e.IsDirectory,e.Size,e.Modified.ToString("yy-MM-dd HH:mm"),e.FullPath));
             foreach(var item in list.Items.OfType<ListBoxItem>())if(selected.Contains(EntryPath(item.Tag)))item.IsSelected=true;
             if(list.Items.Count==0)
             {

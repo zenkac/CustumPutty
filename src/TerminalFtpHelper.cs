@@ -44,8 +44,7 @@ public sealed partial class FtpWorkspace
         pcFilePane.Visibility=terminalMode?Visibility.Collapsed:Visibility.Visible;helperView.Visibility=terminalMode?Visibility.Visible:Visibility.Collapsed;
         sourceBrowse.Visibility=terminalMode?Visibility.Collapsed:Visibility.Visible;
         terminalHelper!.SetTarget(target);terminalHelper.SetServer(session.Site,session.CurrentPath);
-        uploadButton.Content=Ui.Text(terminalMode?"설비 → 서버 명령":"↑ 업로드",12,"#DCE5F0",true);
-        downloadButton.Content=Ui.Text(terminalMode?"서버 → 설비 준비":"↓ 다운로드",12,"#DCE5F0",true);
+        UpdateTransferLabels();
         uploadButton.ToolTip=terminalMode?"설비의 파일명 / 패턴으로 put 또는 mput 명령 준비":"선택한 내 PC 파일 / 폴더를 서버로 전송";
         downloadButton.ToolTip=terminalMode?"선택한 서버 파일로 get / mget 명령 준비 · 터미널에서 실행":"선택한 서버 파일 / 폴더를 현재 내 PC 폴더로 전송";
         remoteFiles.ToolTip=(terminalMode?"파일 더블클릭: 설비로 받을 파일명을 명령 도우미에 준비":"파일 더블클릭: 현재 내 PC 폴더로 다운로드")+" · 폴더 더블클릭: 열기\nWindows 탐색기와의 드래그는 항상 내 PC ↔ 서버 전송입니다.";

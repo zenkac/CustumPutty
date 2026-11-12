@@ -56,7 +56,15 @@ internal sealed class FtpFolderTree : TreeView,IDisposable
         try
         {
             var folders=await session.ListFoldersAsync(data.Path);if(connection!=key||!session.IsConnected)return;
-            bool previous=updating;updating=true;try{Populate(node,folders);data.Loaded=true;}finally{updating=previous;}
+            bool previous=updating;updating=true;
+            try
+            {
+                Populate(node,folders);data.Loaded=true;
+                // Reattaching an expanded ancestor temporarily removes its selected
+                // descendant. Restore the current directory, not the ancestor.
+                var selected=FindPath(this,session.CurrentPath);if(selected!=null)selected.IsSelected=true;
+            }
+            finally{updating=previous;}
         }
         catch(OperationCanceledException){}
         catch(Exception error){node.ToolTip=data.Path+"\n"+error.Message;}
@@ -65,7 +73,7 @@ internal sealed class FtpFolderTree : TreeView,IDisposable
     private TreeViewItem Node(string name,string path,bool loaded)
     {
         var text=Ui.Text(name,11,"#AAB8C8");text.TextWrapping=TextWrapping.NoWrap;text.TextTrimming=TextTrimming.CharacterEllipsis;
-        var glyph=Ui.Glyph("\uE8B7",12);glyph.Foreground=Ui.Brush("#5DD6BE");glyph.Margin=new Thickness(0,0,6,0);
+        var glyph=ShellFileIcons.Create(name,true,16);glyph.Margin=new Thickness(0,0,6,0);
         var header=new DockPanel();DockPanel.SetDock(glyph,Dock.Left);header.Children.Add(glyph);header.Children.Add(text);
         // ItemContainerStyle on TreeView only styles its immediate children.
         // Apply it to every explicit node so nested selections and expanders
@@ -77,6 +85,10 @@ internal sealed class FtpFolderTree : TreeView,IDisposable
             if(e.OriginalSource!=node||updating)return;await LoadChildrenAsync(node);
         };
         return node;
+    }
+    private static TreeViewItem? FindPath(ItemsControl parent,string path)
+    {
+        foreach(var node in parent.Items.OfType<TreeViewItem>()){if(node.Tag is FolderNode data&&data.Path==path)return node;var found=FindPath(node,path);if(found!=null)return found;}return null;
     }
     public void Dispose(){Items.Clear();}
 }

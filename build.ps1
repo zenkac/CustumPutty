@@ -1,4 +1,4 @@
-param([switch]$Portable, [string]$OutputDirectory = 'artifacts\portable-v1.7.0')
+param([switch]$Portable, [string]$OutputDirectory = 'artifacts\portable-v1.8.0')
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $env:DOTNET_CLI_HOME = Join-Path $taskRoot '.build-home'

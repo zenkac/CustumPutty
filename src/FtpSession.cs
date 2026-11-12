@@ -15,6 +15,7 @@ public sealed class FtpSession : IDisposable
     public string CurrentPath { get; private set; }="/";
     public IReadOnlyList<FtpEntry> Entries { get; private set; }=[];
     public bool IsBusy=>busy>0;
+    internal int ConnectionGeneration=>generation;
     public string Error { get; private set; }="";
     public string ListingNotice=>Entries is FtpListing listing?listing.Notice:"";
     public string EncodingDisplay=>client?.EncodingDisplay??"";

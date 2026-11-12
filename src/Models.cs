@@ -63,6 +63,8 @@ public sealed class Preferences
 {
     public string ThemeId { get; set; } = "midnight";
     public bool FtpIconView { get; set; } = true;
+    public bool FtpSwapPanes { get; set; }
+    public bool FtpSinglePane { get; set; }
     public string XServerPath { get; set; } = "";
     public string XLaunchPath { get; set; } = "";
     public string XLaunchConfig { get; set; } = "";
