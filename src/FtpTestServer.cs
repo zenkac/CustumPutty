@@ -33,6 +33,15 @@ internal sealed class FtpTestServer : IAsyncDisposable
     internal string PassiveAdvertisedAddress { get; set; }="127.0.0.1";
     internal string? InjectedListing { get; set; }
     internal bool RejectRename { get; set; }
+    internal string? ListingAccessRoot { get; set; }
+    internal bool RelativeDeleteOnly { get; set; }
+    internal string? DenyDeletePath { get; set; }
+    internal readonly ConcurrentDictionary<string,string> DirectoryListings=new(StringComparer.Ordinal);
+    internal readonly ConcurrentQueue<(string Command,string Argument,string Directory)> DeleteRequests=new();
+    internal int DeniedListings;
+    internal string? DenyCwdAfterDeletePath { get; set; }
+    internal bool CloseAfterDelete { get; set; }
+    internal Action<string>? BeforeListing;
     internal string Password { get; set; }="fixture-password";
     internal string Username { get; set; }="fixture-id";
     internal FtpTestServer(){directories["/"]=0;control.Start();accepting=AcceptAsync();}
@@ -103,6 +112,7 @@ internal sealed class FtpTestServer : IAsyncDisposable
                         case "SYST":await Reply("215 UNIX Type: L8");break;
                         case "PWD":await Reply("257 \""+working.Replace("\"","\"\"")+"\" is current directory");break;
                         case "CWD":
+                            if(PathFor(argument)==DenyCwdAfterDeletePath&&!DeleteRequests.IsEmpty){await Reply("550 CWD denied after deletion");break;}
                             if(directories.ContainsKey(PathFor(argument))){working=PathFor(argument);await Reply("250 Directory changed");}else await Reply("550 Directory not found");
                             break;
                         case "CDUP":working=FtpPaths.Parent(working);await Reply("250 Directory changed");break;
@@ -116,12 +126,14 @@ internal sealed class FtpTestServer : IAsyncDisposable
                         {
                             if(command=="MLSD"&&!SupportMlsd){await Reply("500 MLSD not supported");passive?.Stop();passive=null;break;}
                             string path=string.IsNullOrEmpty(argument)?working:PathFor(argument);
+                            BeforeListing?.Invoke(path);
+                            if(ListingAccessRoot is {} root&&path!=root&&!path.StartsWith(root.TrimEnd('/')+"/",StringComparison.Ordinal)){Interlocked.Increment(ref DeniedListings);await Reply("550 Listing outside home is denied");passive?.Stop();passive=null;break;}
                             if(!directories.ContainsKey(path)){await Reply("550 Directory not found");passive?.Stop();passive=null;break;}
                             if(ListDelayMs>0)await Task.Delay(ListDelayMs,ct);
                             await Reply("150 Opening listing");
                             using(var data=await DataClient())
                             {
-                                string listing=InjectedListing??Listing(path,command=="MLSD");
+                                string listing=DirectoryListings.GetValueOrDefault(path)??InjectedListing??Listing(path,command=="MLSD");
                                 await data.GetStream().WriteAsync(FtpEncoding.Get(WireEncoding).GetBytes(listing),ct);
                             }
                             passive?.Stop();passive=null;await Reply("226 Listing complete");break;
@@ -172,9 +184,17 @@ internal sealed class FtpTestServer : IAsyncDisposable
                             if(RejectRename||!files.TryRemove(rename,out var content)||!directories.ContainsKey(FtpPaths.Parent(path)))await Reply("550 Rename rejected");
                             else{files[path]=content;await Reply("250 Renamed");}rename="";break;
                         }
-                        case "DELE":await Reply(files.TryRemove(PathFor(argument),out _)?"250 Deleted":"550 File not found");break;
+                        case "DELE":
+                            DeleteRequests.Enqueue((command,argument,working));
+                            if(RelativeDeleteOnly&&argument.StartsWith('/')){await Reply("550 Absolute delete paths are not supported");break;}
+                            if(PathFor(argument)==DenyDeletePath){await Reply("550 Delete access denied");break;}
+                            bool removed=files.TryRemove(PathFor(argument),out _);if(removed&&CloseAfterDelete)return;
+                            await Reply(removed?"250 Deleted":"550 File not found");break;
                         case "RMD":
                         {
+                            DeleteRequests.Enqueue((command,argument,working));
+                            if(RelativeDeleteOnly&&argument.StartsWith('/')){await Reply("550 Absolute delete paths are not supported");break;}
+                            if(PathFor(argument)==DenyDeletePath){await Reply("550 Delete access denied");break;}
                             string path=PathFor(argument);bool empty=path!="/"&&!files.Keys.Any(x=>x.StartsWith(path+"/",StringComparison.Ordinal))&&!directories.Keys.Any(x=>x.StartsWith(path+"/",StringComparison.Ordinal));
                             await Reply(empty&&directories.TryRemove(path,out _)?"250 Removed":"550 Directory not empty or missing");break;
                         }

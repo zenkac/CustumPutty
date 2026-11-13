@@ -1,12 +1,12 @@
 param(
-    [string[]]$Suite=@('ftp-explorer','ftp-tools','ftp-drag','ftp-ui'),
+    [string[]]$Suite=@('ftp-delete','ftp-explorer','ftp-tools','ftp-drag','ftp-ui'),
     [string]$Executable
 )
 $ErrorActionPreference='Stop'
 $taskRoot=Split-Path -Parent $PSScriptRoot
-if(-not $Executable){$Executable=Join-Path $taskRoot 'artifacts\portable-v1.8.0\EquipLink.exe'}
+if(-not $Executable){$Executable=Join-Path $taskRoot 'artifacts\portable-v1.8.1\EquipLink.exe'}
 $taskExe=(Resolve-Path -LiteralPath $Executable).Path
-$taskAllowed=@('self','dialog','login','smoke','focus','theme','ftp','ftp-tools','ftp-ui','ftp-drag','ftp-explorer','sftp')
+$taskAllowed=@('self','dialog','login','smoke','focus','theme','ftp','ftp-tools','ftp-ui','ftp-drag','ftp-explorer','ftp-delete','sftp')
 $taskPreviousFixture=$env:EQUIPLINK_SFTP_FIXTURE
 $env:EQUIPLINK_SFTP_FIXTURE=Join-Path $PSScriptRoot 'sftp-fixture.py'
 $taskRun=Get-Date -Format 'yyyyMMdd-HHmmss-fff'

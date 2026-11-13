@@ -175,6 +175,49 @@ public sealed class FtpClient : IAsyncDisposable
     }
 
     public Task DeleteAsync(string path, CancellationToken ct = default) => DeleteFileAsync(path, ct);
+
+    internal Task VerifyDeletionDirectoryAsync(string directory,CancellationToken ct)=>OperationAsync(async token=>
+    {
+        string actual=await ReadWorkingDirectoryAsync(token).ConfigureAwait(false);
+        if(FtpPaths.Normalize(actual)!=FtpPaths.Normalize(directory))throw new IOException("현재 서버 폴더가 변경되었습니다. 새로고침한 뒤 다시 선택해 주세요.");
+    },ct);
+
+    // User-approved deletion uses CWD + a literal child name. Some legacy FTP
+    // servers allow browsing absolute paths but reject absolute DELE/RMD paths.
+    // Keep the switch, deletion, and restoration in one serialized operation.
+    internal Task DeleteListedEntryAsync(FtpEntry entry,Action deleted,CancellationToken ct)
+    {
+        ValidateArgument(entry.Name,"삭제할 파일 이름",false);
+        string parent=FtpPaths.Parent(entry.FullPath);
+        if(entry.IsLink||entry.Name.Contains('\\')||entry.FullPath!=FtpPaths.Join(parent,entry.Name))throw new IOException("삭제할 항목의 이름 또는 경로가 올바르지 않습니다.");
+        return OperationAsync(async token=>
+        {
+            string original=WorkingDirectory;Exception? failure=null;
+            try
+            {
+                Ensure(await CommandAsync("CWD "+parent,token).ConfigureAwait(false),"삭제 대상 폴더 열기",250);
+                string actual=await ReadWorkingDirectoryAsync(token).ConfigureAwait(false);
+                if(FtpPaths.Normalize(actual)!=parent)throw new IOException("삭제 대상 폴더가 다른 위치로 연결되어 있어 중단했습니다.");
+                string name=entry.Name.StartsWith('-')||char.IsWhiteSpace(entry.Name[0])?"./"+entry.Name:entry.Name;
+                Ensure(await CommandAsync((entry.IsDirectory?"RMD ":"DELE ")+name,token).ConfigureAwait(false),entry.IsDirectory?"폴더 삭제":"파일 삭제",250);
+                // Count a confirmed deletion even if restoring CWD fails later.
+                deleted();
+            }
+            catch(Exception error){failure=error;throw;}
+            finally
+            {
+                if(IsConnected&&(FtpPaths.Normalize(original)!=parent||WorkingDirectory!=original))
+                {
+                    try
+                    {
+                        Ensure(await CommandAsync("CWD "+original,token).ConfigureAwait(false),"작업 폴더 복원",250);
+                        if(FtpPaths.Normalize(await ReadWorkingDirectoryAsync(token).ConfigureAwait(false))!=FtpPaths.Normalize(original))throw new IOException("작업 폴더가 변경되었습니다.");
+                    }
+                    catch(Exception error){Abort();if(failure==null)throw new IOException("삭제 후 작업 폴더로 돌아가지 못했습니다. 서버에 다시 연결해 주세요.",error);}
+                }
+            }
+        },ct);
+    }
     public Task RemoveDirectoryAsync(string path,CancellationToken ct=default)
     {
         ValidateArgument(path,"폴더 경로",false);

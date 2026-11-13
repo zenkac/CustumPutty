@@ -93,8 +93,8 @@ internal static class FtpFileToolsTests
                 bool rejected=false;try{await FtpFileDeletion.DeleteRemoteAsync(client,"/",[keep],()=>deleted++,default);}catch(IOException){rejected=true;}
                 Check("Remote deletion rejects an entry outside the displayed folder",rejected&&deleted==0&&server.FileExists(keep.FullPath));
                 server.InjectedListing="type=file;size=3; keep.txt\r\ntype=file;size=3; ../escape\r\n";
-                rejected=false;try{await FtpFileDeletion.DeleteRemoteAsync(client,"/workspace",[keep],()=>deleted++,default);}catch(IOException){rejected=true;}
-                server.InjectedListing=null;Check("Incomplete remote listings stop deletion before any mutation",rejected&&deleted==0&&server.FileExists(keep.FullPath));
+                await FtpFileDeletion.DeleteRemoteAsync(client,"/workspace",[keep],()=>deleted++,default);
+                server.InjectedListing=null;Check("An unreadable unrelated sibling does not prevent deleting an exact selected file",deleted==1&&!server.FileExists(keep.FullPath));server.SetFile(keep.FullPath,[1,2,3]);
                 rejected=false;try{await client.RemoveDirectoryAsync("/");}catch(ArgumentException){rejected=true;}catch(IOException){rejected=true;}
                 Check("The FTP root cannot be removed",rejected&&server.DirectoryExists("/"));
             }

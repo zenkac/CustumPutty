@@ -103,15 +103,28 @@ public sealed partial class FtpWorkspace
         }
         catch(Exception error)
         {
-            string message=$"삭제를 완료하지 못했습니다. 이미 삭제된 항목 {completed:N0}개는 복구할 수 없습니다.\n"+error.Message;
-            if(remote)remoteMessage=$"삭제 중단 · 삭제됨 {completed:N0}개";else localMessage=$"삭제 중단 · 삭제됨 {completed:N0}개";
-            if(!disposed)Ui.Error(new IOException(message));
+            string status=completed==0?"삭제 완료 미확인":$"삭제 중단 · 완료 확인 {completed:N0}개";
+            if(remote)remoteMessage=status;else localMessage=status;
+            if(!disposed)ShowDeletionError(error,completed);
         }
         finally
         {
             deleting=false;
             if(!disposed){try{if(remote&&session.IsConnected)await session.RefreshAsync();else if(!remote)await NavigateLocalAsync(folder);}catch{}UpdateButtons();}
         }
+    }
+    private void ShowDeletionError(Exception error,int completed)
+    {
+        string outcome=completed==0?"삭제 완료가 확인된 항목이 없습니다.":$"{completed:N0}개 항목 삭제 후 작업이 중단되었습니다. 이미 삭제된 항목은 되돌릴 수 없습니다.";
+        var dialog=new FormDialog(owner,"삭제를 완료하지 못했습니다",500,compact:true);
+        var message=Ui.Text(outcome,13,"#E9C786",true);message.Name="FtpDeleteErrorOutcome";message.Margin=new Thickness(0,0,0,12);dialog.Body.Children.Add(message);
+        var details=Ui.Input(error.Message,true);details.Name="FtpDeleteErrorDetails";details.IsReadOnly=true;details.MinHeight=70;details.MaxHeight=155;details.FontSize=11;dialog.Body.Children.Add(details);
+        string hint=error.GetBaseException() is FtpException{ReplyCode:550}?"서버가 요청을 거절했습니다. 표시된 단계의 접근 권한과 파일 상태를 확인해 주세요.":"원인과 대상 경로를 확인해 주세요. 연결이 끊겼다면 다시 연결한 뒤 목록을 새로고침해 실제 파일 상태를 확인하세요.";
+        dialog.Body.Children.Add(Ui.Text(hint,11,"#8797AA"));
+        string diagnostic=$"EquipLink {typeof(App).Assembly.GetName().Version}\n{outcome}\n{error.Message}";
+        var copy=Ui.Button("오류 내용 복사",()=>Ui.Copy(diagnostic));copy.Name="FtpDeleteErrorCopy";
+        var close=Ui.Button("확인",()=>dialog.DialogResult=true,true);close.Name="FtpDeleteErrorClose";close.IsDefault=true;close.IsCancel=true;
+        dialog.Actions.Children.Add(copy);dialog.Actions.Children.Add(close);dialog.ShowDialog();
     }
     internal Task DeleteForTestAsync(bool remote)=>DeleteSelectionAsync(remote);
     internal void SelectRectangleForTest(bool remote,Point from,Point to,ModifierKeys modifiers)=>rectangleSelectors[remote?1:0].SelectForTest(from,to,modifiers);
