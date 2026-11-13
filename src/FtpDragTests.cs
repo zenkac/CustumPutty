@@ -79,6 +79,10 @@ internal static class FtpDragTests
                 Check(view+" double-click download uses the transfer queue and persistent history",queue.Items.First().Status=="완료"&&queue.Items.First().LocalPath==Path.Combine(clickDestination,name)&&store.TransferHistory.Any(x=>x.Direction=="다운로드"&&x.Status=="완료"&&x.LocalPath==Path.Combine(clickDestination,name)));
                 foreach(string decision in new[]{"Skip","Replace","Cancel"})
                 {
+                    // A synthetic routed click can run while WPF is still
+                    // re-enabling the owner of the previous modal dialog.
+                    // Wait for the same enabled state a real mouse needs.
+                    await Wait(()=>owner.IsEnabled&&remote.IsEnabled&&!session.IsBusy);
                     File.WriteAllBytes(Path.Combine(clickDestination,name),oldBytes);int prompts=0;Exception? dialogError=null;
                     FormDialog.TestLoaded=dialog=>
                     {
@@ -91,7 +95,8 @@ internal static class FtpDragTests
                         DoubleClick(remote,(DependencyObject)clicked.Content);await queue.WaitForIdleAsync();if(dialogError!=null)throw dialogError;
                     }
                     finally{FormDialog.TestLoaded=null;}
-                    Check(view+" double-click collision "+decision+" asks once and respects the choice",prompts==1&&File.ReadAllBytes(Path.Combine(clickDestination,name)).SequenceEqual(decision=="Replace"?newBytes:oldBytes));
+                    bool respected=prompts==1&&File.ReadAllBytes(Path.Combine(clickDestination,name)).SequenceEqual(decision=="Replace"?newBytes:oldBytes);
+                    Check(view+" double-click collision "+decision+" asks once and respects the choice"+(respected?"":$" (dialogs={prompts}, ownerEnabled={owner.IsEnabled}, transfer={queue.Items.First().Status})"),respected);
                     await Settle(owner);
                 }
                 before=queue.Items.Count;target=remote.Items.OfType<ListBoxItem>().Single(x=>x.Tag is FtpEntry{Name:"target"});
@@ -105,6 +110,7 @@ internal static class FtpDragTests
             foreach(bool upload in new[]{true,false})
             foreach(string decision in new[]{"Replace","Skip","Cancel"})
             {
+                await Wait(()=>owner.IsEnabled);
                 string name=(upload?"upload-":"download-")+decision+".bin",path=Path.Combine(local,name),remotePath="/workspace/"+name;
                 File.WriteAllBytes(path,upload?newBytes:oldBytes);server.SetFile(remotePath,upload?oldBytes:newBytes);
                 int dialogs=0;Exception? dialogError=null;
