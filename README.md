@@ -5,10 +5,10 @@ PuTTY 기반 Telnet/SSH, Xming 실행 연동, FTP 파일 관리, SSH Browser를 
 
 ## 다운로드
 
-**[Windows x64 실행파일 ZIP 다운로드](https://github.com/zenkac/CustumPutty/releases/download/v1.8.1/EquipLink-v1.8.1-Windows-x64.zip)** · [릴리스 목록](https://github.com/zenkac/CustumPutty/releases)
+**[Windows x64 실행파일 ZIP 다운로드](https://github.com/zenkac/CustumPutty/releases/download/v1.8.2/EquipLink-v1.8.2-Windows-x64.zip)** · [릴리스 목록](https://github.com/zenkac/CustumPutty/releases)
 
-v1.8.1은 상위 폴더 목록 권한이 제한된 서버와 상대 파일명만 받는 구형 서버의 FTP 삭제를 개선했습니다.
-삭제 실패 시 작은 창에 대상 경로·실패 단계·FTP 오류 코드를 표시하고 복사할 수 있습니다.
+v1.8.2는 화면을 정리했습니다. 상단 [터미널 | FTP] 전환, 시작 화면과 하단 상태 표시줄의 X 서버(Xming) 실행 상태,
+섹션으로 나눈 설비 설정·Xming 설정 창을 제공합니다. 기능과 저장 데이터는 1.8.1과 같습니다.
 
 1. ZIP을 내려받아 압축을 풉니다.
 2. 기존 EquipLink가 실행 중이면 종료합니다.
@@ -63,7 +63,7 @@ cd CustumPutty
 .\build.ps1 -Portable
 ```
 
-배포용 결과: `artifacts\portable-v1.8.1\EquipLink.exe`
+배포용 결과: `artifacts\portable-v1.8.2\EquipLink.exe`
 
 `src/packages.lock.json`에 의존성 버전이 기록되어 있습니다.
 `vendor/nuget`에는 앱이 사용하는 네 개의 NuGet 패키지가 포함되어 있습니다.
