@@ -58,15 +58,32 @@ public static class Dialogs
         var command=Ui.Input(item.GuiCommand,true);var notes=Ui.Input(item.Notes,true);var key=Ui.Input(item.PrivateKeyPath);
         var favorite=new CheckBox{Content="즐겨찾기",IsChecked=item.Favorite};var log=new CheckBox{Content="터미널 출력 로그 저장",IsChecked=item.LogSession};var x11=new CheckBox{Content="X11 / GUI 사용",IsChecked=item.UseX11};
         protocol.SelectionChanged+=(_,_)=>{if(port.Text is "22" or "23")port.Text=protocol.SelectedIndex==1?"22":"23";};
+        dialog.Body.Children.Add(Ui.Section("연결",null,true));
         dialog.Body.Children.Add(Ui.Columns(Ui.Field("설비 이름",name),Ui.Field("그룹",group)));
         dialog.Body.Children.Add(Ui.Columns(Ui.Field("IP 주소 / 호스트",host),Ui.Columns(Ui.Field("접속 방식",protocol),Ui.Field("포트",port)),1.25,1));
-        dialog.Body.Children.Add(Ui.Columns(Ui.Field("로그인 ID · 선택",username),Ui.Field("문자 인코딩",encoding)));
+        dialog.Body.Children.Add(Ui.Field("문자 인코딩",encoding));
+        dialog.Body.Children.Add(Ui.Section("로그인","ID와 비밀번호는 이 Windows 계정으로 암호화해 저장합니다."));
+        dialog.Body.Children.Add(Ui.Field("로그인 ID · 선택",username));
         dialog.Body.Children.Add(Ui.Field("비밀번호",passwordGrid));passwordHint.Margin=new Thickness(0,-8,0,10);dialog.Body.Children.Add(passwordHint);dialog.Body.Children.Add(remember);dialog.Body.Children.Add(automatic);
         var loginHint=Ui.Text("저장 후 설비를 더블클릭하면 자동으로 로그인합니다. Telnet은 login / Password 안내에 한 번만 입력합니다. SSH의 최초 서버 키는 직접 확인하며, OTP 등 추가 인증이 있으면 자동 로그인을 끄고 접속하세요. 다른 PC로 내보내는 백업에는 비밀번호가 포함되지 않습니다.",11,"#8797AA");loginHint.Margin=new Thickness(0,4,0,14);dialog.Body.Children.Add(loginHint);
-        var flags=Ui.Row(favorite,log,x11);favorite.Margin=new Thickness(0,0,24,12);log.Margin=new Thickness(0,0,24,12);x11.Margin=new Thickness(0,0,0,12);dialog.Body.Children.Add(flags);
-        dialog.Body.Children.Add(Ui.Columns(Ui.Field("GUI 연결 방식",mode),Ui.Field("설비의 셸",shell)));
-        dialog.Body.Children.Add(Ui.Field("이 설비에서 사용할 PC IP · 선택",address,"비워 두면 공통 설정 또는 설비와 연결된 네트워크의 PC IP를 사용합니다."));
-        dialog.Body.Children.Add(Ui.Field("테스트 GUI 실행 명령 · 선택",command,"비워 두면 새 xterm 창을 엽니다. 로그인 후 GUI 버튼으로 실행합니다."));
+        dialog.Body.Children.Add(Ui.Section("X11 / GUI","로그인 후 xterm 또는 지정한 GUI 명령을 PC의 X 서버(Xming)로 띄웁니다."));
+        x11.Margin=new Thickness(0,0,0,12);dialog.Body.Children.Add(x11);
+        var modeHint=Ui.Text("",11,"#8797AA");modeHint.Margin=new Thickness(0,-8,0,14);
+        var x11Fields=Ui.Stack(Ui.Columns(Ui.Field("GUI 연결 방식",mode),Ui.Field("설비의 셸",shell)),modeHint,
+            Ui.Field("이 설비에서 사용할 PC IP · 선택",address,"비워 두면 공통 설정 또는 설비와 연결된 네트워크의 PC IP를 사용합니다."),
+            Ui.Field("테스트 GUI 실행 명령 · 선택",command,"비워 두면 새 xterm 창을 엽니다. 로그인 후 GUI 버튼으로 실행합니다."));
+        dialog.Body.Children.Add(x11Fields);
+        void UpdateX11State()
+        {
+            bool enabled=x11.IsChecked==true,ssh=protocol.SelectedIndex==1,direct=mode.SelectedIndex==1;
+            x11Fields.IsEnabled=enabled;x11Fields.Opacity=enabled?1:.55;
+            modeHint.Text=!enabled?"X11 / GUI 사용을 켜면 아래 항목을 설정할 수 있습니다."
+                :ssh&&!direct?"SSH X11 전달 · PC IP 없이 SSH 터널로 GUI를 띄웁니다. DISPLAY는 SSH가 자동 지정합니다."
+                :"직접 연결 · 설비가 PC IP의 TCP 6000+디스플레이 번호로 접속합니다. 방화벽과 X 서버 접근 허용이 필요합니다.";
+        }
+        x11.Checked+=(_,_)=>UpdateX11State();x11.Unchecked+=(_,_)=>UpdateX11State();mode.SelectionChanged+=(_,_)=>UpdateX11State();protocol.SelectionChanged+=(_,_)=>UpdateX11State();UpdateX11State();
+        dialog.Body.Children.Add(Ui.Section("기타"));
+        var flags=Ui.Row(favorite,log);favorite.Margin=new Thickness(0,0,24,12);log.Margin=new Thickness(0,0,0,12);dialog.Body.Children.Add(flags);
         dialog.Body.Children.Add(Ui.Field("SSH 개인 키 파일 (.ppk) · 선택",PathInput(key,"PuTTY 개인 키|*.ppk|모든 파일|*.*",dialog)));
         dialog.Body.Children.Add(Ui.Field("설비 메모",notes));
         if(item.BasePuttySession!="")dialog.Body.Children.Add(Ui.Text("고급 연결 설정 기준: PuTTY / "+item.BasePuttySession,11,"#98ACC4"));
@@ -108,9 +125,19 @@ public static class Dialogs
         var pc=Ui.Input(item.PcAddress);var display=Ui.Input(item.DisplayNumber.ToString());var font=Ui.Input(item.FontSize.ToString());var scrollback=Ui.Input(item.Scrollback.ToString());
         var auto=new CheckBox{Content="설비에 연결할 때 Xming을 자동으로 실행",IsChecked=item.AutoStartX};
         var external=new CheckBox{Content="PuTTY를 탭 대신 별도 창에서 사용",IsChecked=item.ExternalTerminal};
-        var intro=Ui.Text("한 번 설정하면 다음 접속부터 같은 X 서버 설정을 자동으로 사용합니다.",13,"#A8BAD0");intro.Margin=new Thickness(0,0,0,18);dialog.Body.Children.Add(intro);
         var theme=new ComboBox{Name="ThemeSelector",ItemsSource=ThemeService.All,DisplayMemberPath="Name",SelectedValuePath="Id",SelectedValue=item.ThemeId};
-        dialog.Body.Children.Add(Ui.Field("화면 테마",theme,"설정 저장 후 앱을 다시 열면 메뉴와 터미널에 함께 적용됩니다."));
+        dialog.Body.Children.Add(Ui.Section("X 서버 (Xming)","한 번 설정하면 다음 접속부터 같은 X 서버 설정을 자동으로 사용합니다.",true));
+        var xStatus=Ui.Text("○  X 서버 확인 중…",12,"#8797AA",true);xStatus.VerticalAlignment=VerticalAlignment.Center;xStatus.Name="XServerStatus";
+        async Task CheckX()
+        {
+            if(!int.TryParse(display.Text,out int number)||number is <0 or >99){xStatus.Text="○  디스플레이 번호를 확인하세요 (0~99)";xStatus.Foreground=Ui.Brush("#E9C786");return;}
+            xStatus.Text="○  확인 중…";xStatus.Foreground=Ui.Brush("#8797AA");
+            bool open=await NetworkTools.PortOpenAsync("127.0.0.1",6000+number,600);
+            xStatus.Text=open?$"●  X 서버 실행 중 · 127.0.0.1:{6000+number} 응답":$"○  X 서버 꺼짐 · 127.0.0.1:{6000+number} 응답 없음";xStatus.Foreground=Ui.Brush(open?"#69DDC0":"#E9C786");
+        }
+        var statusRow=new DockPanel{Margin=new Thickness(0,0,0,16)};var check=Ui.AsyncButton("상태 확인",CheckX);check.Margin=new Thickness(8,0,0,0);DockPanel.SetDock(check,Dock.Right);statusRow.Children.Add(check);statusRow.Children.Add(xStatus);
+        statusRow.Margin=new Thickness(0);var statusCard=Ui.Card(statusRow,"#17212D",12);statusCard.Margin=new Thickness(0,0,0,16);dialog.Body.Children.Add(statusCard);
+        if(!App.IsTesting)dialog.Loaded+=async (_,_)=>{try{await CheckX();}catch{}};
         dialog.Body.Children.Add(Ui.Field("Xming.exe / VcXsrv.exe",PathInput(server,"X 서버|Xming.exe;vcxsrv.exe|실행 파일|*.exe",dialog,path=>
         {var adjacent=Path.Combine(Path.GetDirectoryName(path)!,"XLaunch.exe");if(File.Exists(adjacent))launcher.Text=adjacent;})));
         dialog.Body.Children.Add(Ui.Field("XLaunch.exe",PathInput(launcher,"XLaunch|XLaunch.exe|실행 파일|*.exe",dialog)));
@@ -119,12 +146,17 @@ public static class Dialogs
         var configActions=Ui.Row(Ui.Button("설정 파일 사용 해제",()=>config.Text=""),Ui.Button("XLaunch 설정 마법사",()=>
         {try{if(!File.Exists(launcher.Text))throw new FileNotFoundException("먼저 XLaunch.exe를 선택해 주세요.");Process.Start(new ProcessStartInfo(launcher.Text){UseShellExecute=true});}catch(Exception exception){Ui.Error(exception);}}));configActions.Margin=new Thickness(0,0,0,16);dialog.Body.Children.Add(configActions);
         dialog.Body.Children.Add(auto);
+        dialog.Body.Children.Add(Ui.Section("디스플레이 · 네트워크","Telnet이나 '직접' 방식의 설비가 접속할 PC 주소와 디스플레이 번호입니다."));
         dialog.Body.Children.Add(Ui.Columns(Ui.Field("Windows PC IP · 비우면 자동",pc),Ui.Field("디스플레이 번호",display),3,1));
-        var addresses=new WrapPanel{Margin=new Thickness(0,0,0,16)};
-        foreach(var address in NetworkTools.LocalAddresses())addresses.Children.Add(Ui.Button(address,()=>pc.Text=address));
-        addresses.Children.Add(Ui.Button("자동 선택",()=>pc.Text=""));dialog.Body.Children.Add(addresses);
+        var addresses=new WrapPanel{Margin=new Thickness(0,-6,0,16)};var addressButtons=new List<(Button Button,string Value)>();
+        foreach(var address in NetworkTools.LocalAddresses()){var b=Ui.Button(address,()=>pc.Text=address);b.Margin=new Thickness(0,0,6,6);addresses.Children.Add(b);addressButtons.Add((b,address));}
+        var autoAddress=Ui.Button("자동 선택",()=>pc.Text="");autoAddress.Margin=new Thickness(0,0,6,6);addresses.Children.Add(autoAddress);addressButtons.Add((autoAddress,""));dialog.Body.Children.Add(addresses);
+        void MarkAddress(){foreach(var (b,value) in addressButtons){bool on=pc.Text.Trim()==value;b.Background=Ui.Brush(on?"#25413F":"#1D2A38");b.BorderBrush=Ui.Brush(on?"#4A8D81":"#2A394A");}}
+        pc.TextChanged+=(_,_)=>MarkAddress();MarkAddress();display.TextChanged+=(_,_)=>{xStatus.Text="○  디스플레이 번호 변경됨 · 상태 확인을 눌러 다시 확인하세요";xStatus.Foreground=Ui.Brush("#8797AA");};
         var networkHint=Ui.Text("Telnet GUI는 설비 → PC의 TCP 6000 + 디스플레이 번호로 연결됩니다. 기존 방화벽과 X 서버 접근 설정을 사용합니다.",11,"#98ACC4");networkHint.Margin=new Thickness(0,0,0,12);dialog.Body.Children.Add(networkHint);
         dialog.Body.Children.Add(Ui.Field("Xauthority 파일 · SSH 전달에 필요한 경우",PathInput(auth,"모든 파일|*.*",dialog)));
+        dialog.Body.Children.Add(Ui.Section("화면 · 터미널"));
+        dialog.Body.Children.Add(Ui.Field("화면 테마",theme,"설정 저장 후 앱을 다시 열면 메뉴와 터미널에 함께 적용됩니다."));
         dialog.Body.Children.Add(Ui.Columns(Ui.Field("터미널 글자 크기",font),Ui.Field("스크롤 보관 줄 수",scrollback)));
         dialog.Body.Children.Add(external);
         dialog.Actions.Children.Add(Ui.Button("취소",()=>dialog.DialogResult=false));

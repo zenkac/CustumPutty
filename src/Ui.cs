@@ -81,6 +81,20 @@ public static class Ui
         var panel=Stack(title,input); panel.Margin=new Thickness(0,0,0,14);
         if(hint!=null){var help=Text(hint,11,"#8797AA");help.Margin=new Thickness(0,5,0,0);panel.Children.Add(help);} return panel;
     }
+    /// <summary>Overlay a hint that disappears while the box has text.</summary>
+    public static Grid WithPlaceholder(TextBox box,string hint)
+    {
+        var grid=new Grid();grid.Children.Add(box);var watermark=Text(hint,box.FontSize>0?box.FontSize:11,"#687B91");watermark.TextWrapping=TextWrapping.NoWrap;watermark.Margin=new Thickness(10,0,0,0);watermark.VerticalAlignment=VerticalAlignment.Center;watermark.IsHitTestVisible=false;grid.Children.Add(watermark);
+        void Update()=>watermark.Visibility=box.Text.Length==0?Visibility.Visible:Visibility.Collapsed;box.TextChanged+=(_,_)=>Update();Update();return grid;
+    }
+    /// <summary>Form section heading with a thin divider, used to group long dialogs.</summary>
+    public static FrameworkElement Section(string title,string? description=null,bool first=false)
+    {
+        var heading=Text(title,13,"#5DD6BE",true);
+        var panel=Stack(heading);panel.Margin=new Thickness(0,0,0,12);
+        if(description!=null){var help=Text(description,11,"#8797AA");help.Margin=new Thickness(0,4,0,0);panel.Children.Add(help);}
+        return new Border{Child=panel,BorderBrush=Brush("#2A394A"),BorderThickness=new Thickness(0,first?0:1,0,0),Padding=new Thickness(0,first?0:14,0,0),Margin=new Thickness(0,first?0:6,0,0)};
+    }
     public static Grid Columns(UIElement left,UIElement right,double leftWeight=1,double rightWeight=1)
     {
         var grid=new Grid(); grid.ColumnDefinitions.Add(new(){Width=new GridLength(leftWeight,GridUnitType.Star)});grid.ColumnDefinitions.Add(new(){Width=new GridLength(16)});grid.ColumnDefinitions.Add(new(){Width=new GridLength(rightWeight,GridUnitType.Star)});

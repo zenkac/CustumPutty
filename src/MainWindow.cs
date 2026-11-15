@@ -18,7 +18,20 @@ public sealed partial class MainWindow
     private async Task UpdateXStatusAsync()
     {
         if(checkingX)return;checkingX=true;
-        try{int port=6000+store.Settings.DisplayNumber;bool open=await NetworkTools.PortOpenAsync("127.0.0.1",port,600);xState.Text=open?"●  X 서버 포트 "+port+" 응답":"○  X 서버 포트 "+port+" 대기";xState.Foreground=Ui.Brush(open?"#69DDC0":"#8EA6C1");}finally{checkingX=false;}
+        try
+        {
+            int display=store.Settings.DisplayNumber,port=6000+display;bool open=await NetworkTools.PortOpenAsync("127.0.0.1",port,600);xServerResponding=open;
+            xState.Text=open?$"●  X 서버 실행 중 · :{display}":$"○  X 서버 꺼짐 · :{display}";xState.Foreground=Ui.Brush(open?"#69DDC0":"#E9C786");
+            xState.ToolTip=open?$"127.0.0.1:{port}에서 X 서버가 응답합니다. 로그인 후 xterm 버튼으로 GUI를 실행하세요.":$"127.0.0.1:{port}에 응답하는 X 서버가 없습니다. 클릭하여 Xming을 시작하세요.";
+            UpdateHomeXState();
+        }
+        finally{checkingX=false;}
+    }
+    private void UpdateHomeXState()
+    {
+        if(homeXState==null)return;int display=store.Settings.DisplayNumber;
+        homeXState.Text=xServerResponding switch{true=>$"●  실행 중 · 127.0.0.1:{6000+display}",false=>$"○  꺼져 있음 · 127.0.0.1:{6000+display}",_=>"○  확인 중…"};
+        homeXState.Foreground=Ui.Brush(xServerResponding switch{true=>"#69DDC0",false=>"#E9C786",_=>"#8797AA"});
     }
     private void ImportPutty()
     {

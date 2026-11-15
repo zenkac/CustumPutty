@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace EquipLink;
 
@@ -10,7 +11,16 @@ public sealed partial class MainWindow
     private FtpWorkspace? ftpWorkspace;
     private SftpBrowserPanel? sftpBrowserPanel;
     private Grid terminalRegion=null!;
-    private Button ftpModeButton=null!;
+    private Button ftpModeButton=null!,terminalModeButton=null!;
+    private void UpdateModeSwitch()
+    {
+        foreach(var (button,selected) in new[]{(terminalModeButton,!ftpMode),(ftpModeButton,ftpMode)})
+        {
+            button.Background=selected?Ui.Brush("#25413F"):Brushes.Transparent;
+            if(button.Content is TextBlock label){label.Foreground=Ui.Brush(selected?"#DCE5F0":"#8797AA");}
+            System.Windows.Automation.AutomationProperties.SetItemStatus(button,selected?"선택됨":"");
+        }
+    }
     private bool ftpMode;
 
     private FrameworkElement WithFolderSidebar(FrameworkElement library)
@@ -49,8 +59,7 @@ public sealed partial class MainWindow
         terminalRegion.Visibility=show?Visibility.Collapsed:Visibility.Visible;
         if(ftpWorkspace!=null)ftpWorkspace.Visibility=show?Visibility.Visible:Visibility.Collapsed;
         if(show)ftpWorkspace?.RefreshTerminalTargets();
-        ftpModeButton.Content=Ui.Text(show?"터미널":"FTP",12,"#DCE5F0",true);
-        ftpModeButton.Background=Ui.Brush(show?"#203A3C":"#17212D");
+        UpdateModeSwitch();
         ApplyChrome();RebuildTabs();
         if(!show)Dispatcher.BeginInvoke(()=>{foreach(var pane in VisiblePanesForTest)pane.Host.RefreshViewport();RestoreTerminalFocus();});
     }
