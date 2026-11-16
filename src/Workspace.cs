@@ -25,7 +25,7 @@ public sealed partial class MainWindow : Window
     internal static string AppVersion=>typeof(App).Assembly.GetName().Version?.ToString(3)??"";
     private readonly TextBlock sessionCount=Ui.Text("0 SESSIONS",10,"#8797AA");
     private readonly List<SessionPane> sessions=[],slots=[];
-    private readonly List<UIElement> layoutChrome=[];
+    private readonly List<UIElement> layoutChrome=[],terminalOnlyChrome=[];
     private readonly Dictionary<string,Button> layoutButtons=[];
     private readonly DispatcherTimer statusTimer=new(){Interval=TimeSpan.FromSeconds(12)};
     private FrameworkElement sidebar=null!,toolbar=null!,statusBar=null!;
@@ -63,10 +63,11 @@ public sealed partial class MainWindow : Window
         var tools=Ui.Row();DockPanel.SetDock(tools,Dock.Right);loginButton=Ui.ToolButton("로그인",()=>active?.ShowCredentialMenu(loginButton),"저장한 ID / 비밀번호 입력 · 로그인 프롬프트에서 사용");tools.Children.Add(loginButton);guiButton=Ui.AsyncToolButton("xterm",()=>active?.OpenXtermAsync()??Task.CompletedTask,"로그인 후 선택한 터미널에서 새 xterm 실행");commandButton=Ui.ToolButton("명령",()=>active?.ToggleComposer(),"선택한 터미널의 명령 입력창 · Ctrl+Shift+J");tools.Children.Add(guiButton);tools.Children.Add(commandButton);tools.Children.Add(Ui.ToolButton("집중",ToggleFocus,"메뉴와 사이드바 숨기기 · F11"));var more=Ui.ToolButton("•••",()=>{},"작업공간 메뉴");more.Click+=(_,_)=>OpenMenu(more,BuildAppMenu());tools.Children.Add(more);bar.Children.Add(tools);
         var sidebarButton=Ui.ToolButton("",ToggleSidebar,"설비 목록 접기/펼치기 · Ctrl+Shift+B");sidebarButton.Content=Ui.Glyph("\uE700",14);sidebarButton.Width=30;
         terminalModeButton=Ui.ToolButton("터미널",()=>{if(ftpMode)ShowFtp(false);},"Telnet / SSH 터미널 작업공간");ftpModeButton=Ui.ToolButton("FTP",()=>{if(!ftpMode)ShowFtp(true);},"FTP 파일 전송 작업공간");
-        foreach(var segment in new[]{terminalModeButton,ftpModeButton}){segment.Margin=new Thickness(0);segment.Height=26;segment.MinHeight=24;segment.Padding=new Thickness(12,0,12,0);}
-        var modeSwitch=new Border{Child=Ui.Row(terminalModeButton,ftpModeButton),BorderBrush=Ui.Brush("#2A394A"),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(7),Padding=new Thickness(2),Margin=new Thickness(0,0,8,0),VerticalAlignment=VerticalAlignment.Center};UpdateModeSwitch();
+        var modeSwitch=Ui.Segmented(false,terminalModeButton,ftpModeButton);modeSwitch.Margin=new Thickness(0,0,8,0);UpdateModeSwitch();
         var left=Ui.Row(modeSwitch,sidebarButton,Ui.ToolButton("＋ 빠른 접속",QuickConnectDialog,"새 IP로 접속 · Ctrl+Shift+K",true));left.Children.Add(new Border{Width=1,Height=20,Background=Ui.Brush("#2A394A"),Margin=new Thickness(8,0,10,0)});
         foreach(var (mode,tip) in new[]{("single","단일 터미널"),("columns","좌우 2분할"),("rows","상하 2분할"),("grid","4분할")}){var button=Ui.ToolButton("",()=>SetLayout(mode),tip);button.Content=LayoutGlyph(mode);button.Width=34;System.Windows.Automation.AutomationProperties.SetName(button,tip);layoutButtons[mode]=button;left.Children.Add(button);}bar.Children.Add(left);
+        // Layout, login, xterm, command and focus act on terminals only; FTP has its own toolbar.
+        terminalOnlyChrome.AddRange(left.Children.Cast<UIElement>().Skip(1));terminalOnlyChrome.AddRange(tools.Children.Cast<UIElement>().Take(tools.Children.Count-1));
         return new Border{Background=Ui.Brush("#17212D"),BorderBrush=Ui.Brush("#2A394A"),BorderThickness=new Thickness(0,0,0,1),Child=bar};
     }
     // Small vector icons stay sharp at any display scale without depending on
@@ -82,9 +83,9 @@ public sealed partial class MainWindow : Window
     private FrameworkElement BuildSidebar()
     {
         var side=new Grid{Margin=new Thickness(12,16,12,10)};foreach(var height in new[]{GridLength.Auto,GridLength.Auto,new GridLength(1,GridUnitType.Star),GridLength.Auto})side.RowDefinitions.Add(new(){Height=height});
-        var title=new DockPanel();var add=Ui.ToolButton("",AddEquipment,"설비 등록");add.Content=Ui.Glyph("",12);add.Width=28;add.Margin=new Thickness(0);System.Windows.Automation.AutomationProperties.SetName(add,"설비 등록");DockPanel.SetDock(add,Dock.Right);title.Children.Add(add);var libraryTitle=Ui.Text("설비 라이브러리",13,"#DCE5F0",true);libraryTitle.VerticalAlignment=VerticalAlignment.Center;title.Children.Add(libraryTitle);side.Children.Add(title);
+        var title=new DockPanel();var add=Ui.ToolButton("",AddEquipment,"설비 등록");add.Content=Ui.Glyph("\uE710",12);add.Width=28;add.Margin=new Thickness(0);System.Windows.Automation.AutomationProperties.SetName(add,"설비 등록");DockPanel.SetDock(add,Dock.Right);title.Children.Add(add);var libraryTitle=Ui.Text("설비 라이브러리",13,"#DCE5F0",true);libraryTitle.VerticalAlignment=VerticalAlignment.Center;title.Children.Add(libraryTitle);side.Children.Add(title);
         search.ToolTip="이름 · IP · 그룹 검색";var searchField=new Grid{Margin=new Thickness(0,4,0,7)};searchField.Children.Add(search);var watermark=Ui.Text("이름 · IP 검색",11,"#687B91");watermark.Margin=new Thickness(10,0,0,0);watermark.VerticalAlignment=VerticalAlignment.Center;watermark.IsHitTestVisible=false;searchField.Children.Add(watermark);search.TextChanged+=(_,_)=>watermark.Visibility=search.Text.Length==0?Visibility.Visible:Visibility.Collapsed;var filter=Ui.Stack(searchField,groupFilter);filter.Margin=new Thickness(0,6,0,14);side.Children.Add(filter);Grid.SetRow(filter,1);side.Children.Add(equipmentList);Grid.SetRow(equipmentList,2);
-        var settingsButton=Ui.ToolButton("",OpenSettings,"X 서버(Xming)·테마·터미널 설정");var settingsIcon=Ui.Glyph("",13);settingsIcon.Margin=new Thickness(0,0,8,0);var settingsLabel=Ui.Text("설정 · Xming",12,"#DCE5F0",true);settingsLabel.TextWrapping=TextWrapping.NoWrap;settingsLabel.VerticalAlignment=VerticalAlignment.Center;settingsButton.Content=Ui.Row(settingsIcon,settingsLabel);settingsButton.HorizontalContentAlignment=HorizontalAlignment.Left;settingsButton.Margin=new Thickness(-6,0,0,0);
+        var settingsButton=Ui.ToolButton("",OpenSettings,"X 서버(Xming)·테마·터미널 설정");var settingsIcon=Ui.Glyph("\uE713",13);settingsIcon.Margin=new Thickness(0,0,8,0);var settingsLabel=Ui.Text("설정 · Xming",12,"#DCE5F0",true);settingsLabel.TextWrapping=TextWrapping.NoWrap;settingsLabel.VerticalAlignment=VerticalAlignment.Center;settingsButton.Content=Ui.Row(settingsIcon,settingsLabel);settingsButton.HorizontalContentAlignment=HorizontalAlignment.Left;settingsButton.Margin=new Thickness(-6,0,0,0);
         var bottom=Ui.Stack(sessionCount,settingsButton);bottom.Margin=new Thickness(2,12,0,0);sessionCount.Margin=new Thickness(0,0,0,8);side.Children.Add(bottom);Grid.SetRow(bottom,3);
         return new Border{Background=Ui.Brush("#17212D"),BorderBrush=Ui.Brush("#2A394A"),BorderThickness=new Thickness(0,0,1,0),Child=WithFolderSidebar(side)};
     }
@@ -114,6 +115,7 @@ public sealed partial class MainWindow : Window
             var ip=Ui.Text(e.Host,11,"#8797AA");ip.Margin=new Thickness(0,4,0,0);ip.TextWrapping=TextWrapping.NoWrap;ip.TextTrimming=TextTrimming.CharacterEllipsis;
             var row=new ListBoxItem{Content=Ui.Stack(heading,ip),Tag=e,ToolTip=$"{e.Name} · {e.Host}:{e.Port}\n{e.Group} · 더블클릭 접속"};var menu=new ContextMenu();AddMenu(menu,"연결",async()=>await ConnectSafeAsync(e));AddMenu(menu,"설비 편집",()=>EditEquipment(e));AddMenu(menu,e.Favorite?"즐겨찾기 해제":"즐겨찾기 추가",()=>{e.Favorite=!e.Favorite;store.Save();RefreshList(e.Id);});AddMenu(menu,"포트 확인",async()=>await ProbeAsync(e));menu.Items.Add(new Separator());AddMenu(menu,"목록에서 삭제",()=>DeleteEquipment(e));row.ContextMenu=menu;equipmentList.Items.Add(row);if(e.Id==selectedId)equipmentList.SelectedItem=row;
         }
+        if(equipmentList.Items.Count==0){var hint=Ui.Text(store.Equipment.Count==0?"등록된 설비가 없습니다.\n위의 + 또는 빠른 접속으로 추가하세요.":"조건에 맞는 설비가 없습니다.",11,"#8797AA");equipmentList.Items.Add(new ListBoxItem{Content=hint,IsEnabled=false,Focusable=false});}
         refreshing=false;if(showingHome)RefreshHome();
     }
     private void RefreshHome()
@@ -165,7 +167,7 @@ public sealed partial class MainWindow : Window
             var border=new Border{Child=Ui.Row(name,close),Background=Ui.Brush(selected?"#22353E":visible?"#1B2936":"#17212D"),BorderBrush=Ui.Brush(selected?"#5DD6BE":"#2A394A"),BorderThickness=new Thickness(0,0,0,selected?2:1),CornerRadius=new CornerRadius(5,5,0,0),Margin=new Thickness(0,0,4,0)};
             var menu=new ContextMenu();AddMenu(menu,"이 터미널 선택",()=>ShowSession(session));AddMenu(menu,"한 화면으로 확대 / 복원",()=>ToggleZoom(session));AddMenu(menu,"같은 설비에 새 접속",async()=>await ConnectSafeAsync(session.Equipment));AddMenu(menu,"세션 종료",()=>CloseTab(session));border.ContextMenu=menu;tabBar.Children.Add(border);
         }
-        var plus=Ui.ToolButton("",QuickConnectDialog,"새 접속 · Ctrl+Shift+K");plus.Content=Ui.Glyph("",12);plus.Width=32;System.Windows.Automation.AutomationProperties.SetName(plus,"새 접속");tabBar.Children.Add(plus);sessionCount.Text=$"{sessions.Count:00} SESSIONS  /  {store.Equipment.Count:00} DEVICES";foreach(var pair in layoutButtons){pair.Value.Background=Ui.Brush(pair.Key==layout?"#25413F":"#17212D");pair.Value.BorderBrush=Ui.Brush(pair.Key==layout?"#4A8D81":"#2A394A");}sftpBrowserPanel?.Refresh();loginButton.IsEnabled=!ftpMode&&!showingHome&&active!=null;guiButton.IsEnabled=!ftpMode&&!showingHome&&active?.Equipment.UseX11==true;commandButton.IsEnabled=!ftpMode&&!showingHome&&active!=null;
+        var plus=Ui.ToolButton("",QuickConnectDialog,"새 접속 · Ctrl+Shift+K");plus.Content=Ui.Glyph("\uE710",12);plus.Width=32;System.Windows.Automation.AutomationProperties.SetName(plus,"새 접속");tabBar.Children.Add(plus);sessionCount.Text=$"{sessions.Count:00} SESSIONS  /  {store.Equipment.Count:00} DEVICES";foreach(var pair in layoutButtons){pair.Value.Background=Ui.Brush(pair.Key==layout?"#25413F":"#17212D");pair.Value.BorderBrush=Ui.Brush(pair.Key==layout?"#4A8D81":"#2A394A");}sftpBrowserPanel?.Refresh();loginButton.IsEnabled=!ftpMode&&!showingHome&&active!=null;guiButton.IsEnabled=!ftpMode&&!showingHome&&active?.Equipment.UseX11==true;commandButton.IsEnabled=!ftpMode&&!showingHome&&active!=null;
     }
     private void ShowHome(){showingHome=true;zoomed=null;foreach(var p in sessions)p.Visibility=Visibility.Collapsed;foreach(var item in layoutChrome)item.Visibility=Visibility.Collapsed;home.Visibility=Visibility.Visible;Grid.SetRow(home,0);Grid.SetColumn(home,0);Grid.SetRowSpan(home,Math.Max(1,workspace.RowDefinitions.Count));Grid.SetColumnSpan(home,Math.Max(1,workspace.ColumnDefinitions.Count));RefreshHome();RebuildTabs();}
     private void ShowSession(SessionPane pane){if(ftpMode)ShowFtp(false);showingHome=false;if(!slots.Contains(pane)){int index=active!=null?slots.IndexOf(active):-1;if(slots.Count<Capacity)slots.Add(pane);else slots[Math.Max(0,index)]=pane;}active=pane;if(zoomed!=null)zoomed=pane;ApplyLayout();FocusActive();}
@@ -208,7 +210,7 @@ public sealed partial class MainWindow : Window
     private void ToggleZoom(SessionPane p){if(!slots.Contains(p))ShowSession(p);active=p;zoomed=zoomed==p?null:p;showingHome=false;ApplyLayout();FocusActive();}
     private void ToggleSidebar(){sidebarVisible=!sidebarVisible;ApplyChrome();}
     private void ToggleFocus(){if(ftpMode)ShowFtp(false);focusMode=!focusMode;ApplyChrome();FocusActive();}
-    private void ApplyChrome(){sidebar.Visibility=sidebarVisible&&!focusMode&&!ftpMode?Visibility.Visible:Visibility.Collapsed;root.ColumnDefinitions[0].Width=new GridLength(sidebarVisible&&!focusMode&&!ftpMode?224:0);toolbar.Visibility=focusMode?Visibility.Collapsed:Visibility.Visible;statusBar.Visibility=focusMode?Visibility.Collapsed:Visibility.Visible;focusExit.Visibility=focusMode?Visibility.Visible:Visibility.Collapsed;}
+    private void ApplyChrome(){foreach(var item in terminalOnlyChrome)item.Visibility=ftpMode?Visibility.Collapsed:Visibility.Visible;sidebar.Visibility=sidebarVisible&&!focusMode&&!ftpMode?Visibility.Visible:Visibility.Collapsed;root.ColumnDefinitions[0].Width=new GridLength(sidebarVisible&&!focusMode&&!ftpMode?224:0);toolbar.Visibility=focusMode?Visibility.Collapsed:Visibility.Visible;statusBar.Visibility=focusMode?Visibility.Collapsed:Visibility.Visible;focusExit.Visibility=focusMode?Visibility.Visible:Visibility.Collapsed;}
     private void HandleShortcut(string cmd){switch(cmd){case "focus":ToggleFocus();break;case "sidebar":ToggleSidebar();break;case "quick":QuickConnectDialog();break;case "composer":if(!ftpMode)active?.ToggleComposer();break;case "zoom":if(!ftpMode&&active!=null)ToggleZoom(active);break;}}
     private void QuickConnectDialog()
     {
@@ -219,19 +221,19 @@ public sealed partial class MainWindow : Window
     }
     private void AddEquipment(){var item=Dialogs.EquipmentEditor(this,new Equipment());if(item==null)return;store.Equipment.Add(item);store.Save();RefreshGroups();RefreshList(item.Id);}
     private void EditEquipment(Equipment e){var item=Dialogs.EquipmentEditor(this,e);if(item==null)return;store.Equipment[store.Equipment.FindIndex(p=>p.Id==e.Id)]=item;store.Save();RefreshGroups();RefreshList(item.Id);}
-    private void DeleteEquipment(Equipment e){if(MessageBox.Show(this,"저장된 설비 '"+e.Name+"'를 목록에서 삭제할까요?","설비 삭제",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;store.Equipment.Remove(e);store.Save();RefreshGroups();RefreshList();}
+    private void DeleteEquipment(Equipment e){if(!Dialogs.Confirm(this,"설비 삭제","저장된 설비 '"+e.Name+"'를 목록에서 삭제할까요? 저장한 로그인 정보도 함께 지워집니다.","삭제",true))return;store.Equipment.Remove(e);store.Save();RefreshGroups();RefreshList();}
     private async Task ConnectSafeAsync(Equipment e)
     {
         if(preview)return;try{e=e.Copy();e.Validate();SetStatus(e.Name+" 접속 준비 중…");string warning="";if(e.UseX11&&store.Settings.AutoStartX){try{SetStatus(await xServer.EnsureAsync(store.Settings));}catch(Exception ex){warning="Xming 설정 확인: "+ex.Message;SetStatus(warning);}}var pane=CreatePane(e);sessions.Add(pane);workspace.Children.Add(pane);ShowSession(pane);await pane.ConnectAsync();store.Record(e);RefreshList(e.Id);if(warning!=""){pane.ShowGuiNotice(warning);SetStatus(warning);}}catch(Exception ex){SetStatus("접속 준비 실패: "+ex.Message);Ui.Error(ex);}
     }
     private SessionPane CreatePane(Equipment e){var p=new SessionPane(this,e,store,SetStatus,()=>ConnectSafeAsync(e),xServer);p.Activated+=()=>ActivatePane(p);p.ZoomRequested+=()=>ToggleZoom(p);p.CloseRequested+=()=>CloseTab(p);return p;}
-    private void CloseTab(SessionPane p,bool confirm=true){if(confirm&&p.Host.HasProcess&&MessageBox.Show(this,"'"+p.Equipment.Name+"' 세션을 종료할까요? 실행 중인 작업에 영향을 줄 수 있습니다.","세션 닫기",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;int index=slots.IndexOf(p);p.Sftp.Dispose();p.Host.CloseSession();workspace.Children.Remove(p);p.Host.Dispose();sessions.Remove(p);slots.Remove(p);var replacement=sessions.FirstOrDefault(s=>!slots.Contains(s));if(index>=0&&replacement!=null)slots.Insert(Math.Min(index,slots.Count),replacement);if(zoomed==p)zoomed=null;if(active==p)active=slots.FirstOrDefault()??sessions.FirstOrDefault();if(sessions.Count==0)ShowHome();else if(showingHome)RebuildTabs();else ApplyLayout();}
+    private void CloseTab(SessionPane p,bool confirm=true){if(confirm&&p.Host.HasProcess&&!Dialogs.Confirm(this,"세션 닫기","'"+p.Equipment.Name+"' 세션을 종료할까요? 실행 중인 작업에 영향을 줄 수 있습니다.","세션 종료",true))return;int index=slots.IndexOf(p);p.Sftp.Dispose();p.Host.CloseSession();workspace.Children.Remove(p);p.Host.Dispose();sessions.Remove(p);slots.Remove(p);var replacement=sessions.FirstOrDefault(s=>!slots.Contains(s));if(index>=0&&replacement!=null)slots.Insert(Math.Min(index,slots.Count),replacement);if(zoomed==p)zoomed=null;if(active==p)active=slots.FirstOrDefault()??sessions.FirstOrDefault();if(sessions.Count==0)ShowHome();else if(showingHome)RebuildTabs();else ApplyLayout();}
     private bool closingTransfers,closeConfirmed;
     private async void OnClosing(object? sender,CancelEventArgs e)
     {
         if(closingTransfers){e.Cancel=true;return;}
         int count=sessions.Count(s=>s.Host.HasProcess);
-        if(!closeConfirmed&&(count>0||ftpQueue.HasPending)&&MessageBox.Show(this,$"열려 있는 터미널 {count}개"+(ftpQueue.HasPending?"와 진행 중인 FTP 전송을 종료하고 EquipLink를 닫을까요?":"를 종료하고 EquipLink를 닫을까요?"),"EquipLink 종료",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes){e.Cancel=true;return;}
+        if(!closeConfirmed&&(count>0||ftpQueue.HasPending)&&!Dialogs.Confirm(this,"EquipLink 종료",$"열려 있는 터미널 {count}개"+(ftpQueue.HasPending?"와 진행 중인 FTP 전송을 종료하고 EquipLink를 닫을까요?":"를 종료하고 EquipLink를 닫을까요?"),"종료",true)){e.Cancel=true;return;}
         if(ftpQueue.HasPending)
         {
             e.Cancel=true;closingTransfers=true;IsEnabled=false;SetStatus("FTP 전송을 취소하고 임시 파일을 정리하는 중…");ftpSession.Disconnect();ftpQueue.CancelAll();

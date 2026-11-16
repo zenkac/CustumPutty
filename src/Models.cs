@@ -61,7 +61,7 @@ public sealed class Equipment
 
 public sealed class Preferences
 {
-    public string ThemeId { get; set; } = "midnight";
+    public string ThemeId { get; set; } = ThemeService.DefaultId;
     public bool FtpIconView { get; set; } = true;
     public bool FtpSwapPanes { get; set; }
     public bool FtpSinglePane { get; set; }

@@ -13,13 +13,16 @@ public static class Ui
     public static void ApplyWindowTheme(Window window)
     {
         if(Application.Current?.TryFindResource(typeof(Window)) is Style style)window.Style=style;
-        window.Background=Application.Current?.TryFindResource("Bg") as Brush??Brush("#111923");
-        window.Foreground=Application.Current?.TryFindResource("Ink") as Brush??Brush("#DCE5F0");
+        // Resource references (not copied values) keep windows in step with live theme changes.
+        if(Application.Current?.TryFindResource("Bg") is Brush){window.SetResourceReference(Control.BackgroundProperty,"Bg");window.SetResourceReference(Control.ForegroundProperty,"Ink");}
+        else{window.Background=Brush("#111923");window.Foreground=Brush("#DCE5F0");}
         window.FontFamily=new FontFamily("Segoe UI, Malgun Gothic");window.FontSize=12;
         window.UseLayoutRounding=true;TextOptions.SetTextFormattingMode(window,TextFormattingMode.Display);
         window.SourceInitialized-=ApplyWindowChrome;window.SourceInitialized+=ApplyWindowChrome;
         if(new WindowInteropHelper(window).Handle!=IntPtr.Zero)ApplyWindowChrome(window,EventArgs.Empty);
     }
+    /// <summary>Repaint the native caption after a live theme change.</summary>
+    internal static void RefreshWindowChrome(Window window)=>ApplyWindowChrome(window,EventArgs.Empty);
     private static void ApplyWindowChrome(object? sender,EventArgs args)
     {
         if(sender is not Window window)return;
@@ -81,6 +84,22 @@ public static class Ui
         var panel=Stack(title,input); panel.Margin=new Thickness(0,0,0,14);
         if(hint!=null){var help=Text(hint,11,"#8797AA");help.Margin=new Thickness(0,5,0,0);panel.Children.Add(help);} return panel;
     }
+    /// <summary>A two- or three-way switch whose buttons share one rounded frame.</summary>
+    public static Border Segmented(bool stretch,params Button[] buttons)
+    {
+        Panel host;
+        if(stretch){var grid=new Grid();foreach(var button in buttons){grid.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star)});Grid.SetColumn(button,grid.ColumnDefinitions.Count-1);grid.Children.Add(button);}host=grid;}
+        else{var row=Row();foreach(var button in buttons)row.Children.Add(button);host=row;}
+        foreach(var button in buttons){button.Margin=new Thickness(0);button.Height=26;button.MinHeight=24;button.Padding=new Thickness(12,0,12,0);button.BorderThickness=new Thickness(0);}
+        return new Border{Child=host,BorderBrush=Brush("#2A394A"),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(7),Padding=new Thickness(2),VerticalAlignment=VerticalAlignment.Center};
+    }
+    public static void SetSegment(Button button,bool selected)
+    {
+        button.Background=selected?Brush("#25413F"):System.Windows.Media.Brushes.Transparent;
+        if(button.Content is TextBlock label)label.Foreground=Brush(selected?"#DCE5F0":"#8797AA");
+        System.Windows.Automation.AutomationProperties.SetItemStatus(button,selected?"선택됨":"");
+    }
+    public static Border Divider(double height=20)=>new(){Width=1,Height=height,Background=Brush("#2A394A"),Margin=new Thickness(6,0,8,0),VerticalAlignment=VerticalAlignment.Center};
     /// <summary>Overlay a hint that disappears while the box has text.</summary>
     public static Grid WithPlaceholder(TextBox box,string hint)
     {
@@ -100,7 +119,13 @@ public static class Ui
         var grid=new Grid(); grid.ColumnDefinitions.Add(new(){Width=new GridLength(leftWeight,GridUnitType.Star)});grid.ColumnDefinitions.Add(new(){Width=new GridLength(16)});grid.ColumnDefinitions.Add(new(){Width=new GridLength(rightWeight,GridUnitType.Star)});
         grid.Children.Add(left);grid.Children.Add(right);Grid.SetColumn(right,2);return grid;
     }
-    public static void Error(Exception exception){if(App.IsTesting)throw exception;MessageBox.Show(exception.Message,"EquipLink",MessageBoxButton.OK,MessageBoxImage.Warning);}
+    public static void Error(Exception exception)
+    {
+        if(App.IsTesting)throw exception;
+        var owner=Application.Current?.Windows.OfType<Window>().FirstOrDefault(w=>w.IsActive&&w.IsVisible)??Application.Current?.MainWindow;
+        if(owner==null||!owner.IsVisible){MessageBox.Show(exception.Message,"EquipLink",MessageBoxButton.OK,MessageBoxImage.Warning);return;}
+        Dialogs.Notice(owner,"확인이 필요합니다",exception.Message);
+    }
     public static void Copy(string text) { try{Clipboard.SetText(text);}catch(Exception exception){Error(exception);} }
     public static void OpenFolder(string folder) { System.IO.Directory.CreateDirectory(folder); System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(folder){UseShellExecute=true}); }
 }

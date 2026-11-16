@@ -9,7 +9,7 @@ namespace EquipLink;
 public sealed class SftpBrowserPanel : Grid,IDisposable
 {
     readonly Window owner;readonly AppStore store;readonly Func<SessionPane?> selected;
-    readonly TextBlock title=Ui.Text("SSH Browser",12,"#DCE5F0",true),status=Ui.Text("",10,"#8797AA"),notice=Ui.Text("",11,"#8797AA");
+    readonly TextBlock title=Ui.Text("SSH Browser",13,"#DCE5F0",true),status=Ui.Text("",10,"#8797AA"),notice=Ui.Text("",11,"#8797AA");
     readonly TextBlock instruction=Ui.Text("",12,"#8797AA");
     readonly TextBox address=Ui.Input();
     readonly ListBox entries=new(){Name="SftpEntries",Background=Ui.Brush("#17212D"),BorderThickness=new Thickness(0)};

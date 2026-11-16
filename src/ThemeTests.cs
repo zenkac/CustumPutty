@@ -30,10 +30,28 @@ public static class ThemeTests
         try
         {
             Check("Three unique built-in theme choices are available",ThemeService.All.Count==3 && ThemeService.All.Select(t=>t.Id).Distinct().Count()==3);
-            Check("Unknown theme IDs safely use Midnight",ThemeService.NormalizeId("unknown-theme")=="midnight" && ThemeService.NormalizeId(null)=="midnight");
-            Check("Legacy preferences without a theme keep Midnight",AppStore.Read("{\"Version\":1,\"Settings\":{}}").Settings.ThemeId=="midnight");
-            Check("Invalid persisted theme values normalize to Midnight",AppStore.Read("{\"Version\":1,\"Settings\":{\"ThemeId\":\"removed-theme\"}}").Settings.ThemeId=="midnight");
+            Check("Unknown theme IDs safely use the Graphite default",ThemeService.NormalizeId("unknown-theme")=="graphite" && ThemeService.NormalizeId(null)=="graphite");
+            Check("Preferences without a theme use the Graphite default",AppStore.Read("{\"Version\":1,\"Settings\":{}}").Settings.ThemeId=="graphite" && new Preferences().ThemeId=="graphite");
+            Check("An explicitly saved Midnight theme is kept",AppStore.Read("{\"Version\":1,\"Settings\":{\"ThemeId\":\"midnight\"}}").Settings.ThemeId=="midnight");
+            Check("Invalid persisted theme values normalize to Graphite",AppStore.Read("{\"Version\":1,\"Settings\":{\"ThemeId\":\"removed-theme\"}}").Settings.ThemeId=="graphite");
             Check("Theme ID lookup ignores case",ThemeService.NormalizeId("NORD")=="nord");
+            {
+                // Controls built under one theme must repaint when another is applied.
+                ThemeService.Apply("midnight");int raised=0;void Count()=>raised++;ThemeService.Changed+=Count;
+                var surface=new System.Windows.Controls.Border{Background=Ui.Brush("#17212D"),BorderBrush=Ui.Brush("#2A394A")};var label=Ui.Text("live",12,"#8797AA");
+                var dialog=new FormDialog(null!,"live theme");
+                try
+                {
+                    ThemeService.Apply("nord");var nord=ThemeService.Get("nord");
+                    Check("Live switch repaints existing panels, text and borders",Color(surface.Background)==Canonical(nord.Resolve("#17212D"))&&Color(surface.BorderBrush)==Canonical(nord.Resolve("#2A394A"))&&Color(label.Foreground)==Canonical(nord.Resolve("#8797AA")));
+                    Check("Live switch updates application resources and open dialog surfaces",Color(Application.Current.Resources["Bg"] as Brush)==Canonical(nord.Resolve("#111923"))&&Color(dialog.Background)==Canonical(nord.Resolve("#111923")));
+                    ThemeService.Apply("nord");
+                    Check("Applying a different theme raises one change notification",raised==1);
+                    var worker=Task.Run(()=>Ui.Brush("#111923")).GetAwaiter().GetResult();
+                    Check("Worker-thread brush requests return a usable frozen snapshot",worker.IsFrozen&&Color(worker)==Canonical(nord.Resolve("#111923")));
+                }
+                finally{ThemeService.Changed-=Count;dialog.Close();}
+            }
 
             foreach(var theme in ThemeService.All)
             {
@@ -101,10 +119,14 @@ public static class ThemeTests
                         Check(theme.Id+" settings selector shows the persisted choice",selector.SelectedValue as string==theme.Id && selector.Items.Count==3);
                         CaptureDialog(dialog,"settings-"+theme.Id+".png");
                         selector.SelectedValue=next;
+                        Check(theme.Id+" choosing a theme previews it immediately",ThemeService.Current.Id==next && Color(dialog.Background)==Canonical(ThemeService.Get(next).Resolve("#111923")) && Color(window.Background)==Canonical(ThemeService.Get(next).Resolve("#111923")));
                         Find<Button>(dialog,"SaveSettings").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     });
                     Check(theme.Id+" actual settings Save returns the selected theme",saved?.ThemeId==next && preferences.ThemeId==theme.Id);
-                    Check(theme.Id+" settings save keeps the running workspace palette until reopening",ThemeService.Current.Id==theme.Id);
+                    Check(theme.Id+" settings save applies the selected theme without restarting",ThemeService.Current.Id==next && Color(window.Background)==Canonical(ThemeService.Get(next).Resolve("#111923")));
+                    var cancelled=RunDialog(()=>Dialogs.Settings(window,saved!),dialog=>{Find<ComboBox>(dialog,"ThemeSelector").SelectedValue=theme.Id;dialog.DialogResult=false;});
+                    Check(theme.Id+" cancelling settings restores the previous theme",cancelled==null && ThemeService.Current.Id==next);
+                    ThemeService.Apply(theme.Id);
                     var savedData=new AppStore{Settings=saved!};savedData.Save();
                     Check(theme.Id+" selected theme persists in the app settings file",AppStore.Load().Settings.ThemeId==next);
                     await Settle(window);

@@ -14,6 +14,8 @@ public static class DialogTests
     public static void Run()
     {
         Directory.CreateDirectory(AppPaths.Root);
+        // These checks pin the Midnight canonical colors; the app default is Graphite.
+        ThemeService.Apply("midnight");
         var report=new StringBuilder();
         void Check(string label,bool ok)
         {
@@ -36,6 +38,18 @@ public static class DialogTests
                 dialog.DialogResult=false;
             });
             Check("Cancelling actual settings dialog returns no changes",settings==null);
+
+            bool removed=RunDialog(()=>Dialogs.Confirm(owner,"설비 삭제","저장된 설비 'TESTER 01'를 목록에서 삭제할까요?","삭제",true),dialog=>
+            {
+                var cancel=Find<Button>(dialog,"ConfirmCancel");var accept=Find<Button>(dialog,"ConfirmAccept");
+                Check("Destructive confirmation is a themed dialog, not a system message box",Color(dialog.Background)=="#FF111923" && dialog.Owner==owner);
+                Check("Destructive confirmation defaults to Cancel for Enter and Esc",cancel.IsDefault && cancel.IsCancel && !accept.IsDefault);
+                Capture(dialog,"confirm-delete-dark.png");
+                accept.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            });
+            Check("Confirming the themed dialog returns true",removed);
+            bool kept=RunDialog(()=>Dialogs.Confirm(owner,"재연결","현재 세션을 종료하고 다시 접속할까요?","재연결"),dialog=>Check("Non-destructive confirmation makes its action the default",Find<Button>(dialog,"ConfirmAccept").IsDefault));
+            Check("Closing a confirmation without choosing returns false",!kept);
 
             const string syntheticPassword="Fixture-Only! 2026";
             var original=new Equipment{Name="검증용 설비 · 실제 연결 없음",Group="샘플",Host="192.0.2.42",UseX11=true};

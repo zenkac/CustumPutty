@@ -21,7 +21,7 @@ public partial class App : Application
         };
         try
         {
-            ThemeService.Apply("midnight");
+            ThemeService.Apply(ThemeService.DefaultId);
             if(e.Args.Contains("--login-reload-test"))
             {
                 AppPaths.OverrideRoot=Path.GetFullPath(e.Args[1]);

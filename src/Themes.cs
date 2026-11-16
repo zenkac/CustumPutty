@@ -98,23 +98,52 @@ public static class ThemeService
         var map=Colors.ToDictionary(c=>c.Canonical,c=>index==1?c.Graphite:index==2?c.Nord:c.Canonical,StringComparer.OrdinalIgnoreCase);
         return new(id,name,description,new ReadOnlyDictionary<string,string>(map),terminal);
     }
-    public static string NormalizeId(string? id)=>All.FirstOrDefault(t=>string.Equals(t.Id,id,StringComparison.OrdinalIgnoreCase))?.Id??"midnight";
+    public const string DefaultId="graphite";
+    public static string NormalizeId(string? id)=>All.FirstOrDefault(t=>string.Equals(t.Id,id,StringComparison.OrdinalIgnoreCase))?.Id??DefaultId;
     public static ThemeDefinition Get(string? id)=>All.First(t=>t.Id==NormalizeId(id));
     public static string Resolve(string canonicalHex)=>Current.Resolve(canonicalHex);
     /// <summary>PuTTY Colour0..Colour21, as comma-separated RGB components.</summary>
     public static IReadOnlyList<string> PuttyColors=>Current.PuttyColors;
-    /// <summary>Apply before constructing windows. Existing PuTTY sessions keep their palette.</summary>
+    /// <summary>Raised on the UI thread after a different theme has been applied.</summary>
+    public static event Action? Changed;
+    // Every palette role has one shared, mutable brush. Applying a theme changes
+    // those brushes in place, so all existing controls repaint without being
+    // rebuilt and open terminal sessions are left untouched. Colors outside the
+    // palette never change and stay frozen.
+    private static readonly Dictionary<string,SolidColorBrush> palette=new(StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> paletteKeys=new(Colors.Select(c=>c.Canonical),StringComparer.OrdinalIgnoreCase);
+    private static Color Parse(string hex)=>(Color)ColorConverter.ConvertFromString(hex);
+    /// <summary>Apply a theme. Call on the UI thread. New PuTTY sessions use the
+    /// new palette; already running sessions keep theirs until reconnected.</summary>
     public static void Apply(string? id)
     {
-        Current=Get(id);brushes.Clear();
+        var next=Get(id);bool changed=next!=Current;Current=next;brushes.Clear();
+        foreach(var key in paletteKeys)
+        {
+            var color=Parse(Resolve(key));
+            // A brush frozen by WPF (e.g. stored in a style) cannot change; replace it so new controls still follow.
+            if(palette.TryGetValue(key,out var brush)&&!brush.IsFrozen&&brush.CheckAccess())brush.Color=color;
+            else palette[key]=new SolidColorBrush(color);
+        }
         if(Application.Current is not Application app)return;
-        foreach(var pair in ResourceColors)app.Resources[pair.Key]=Brush(pair.Value);
+        // Application resources are frozen by WPF when first fetched, so they are
+        // replaced instead; every {DynamicResource} consumer follows the new value.
+        foreach(var pair in ResourceColors){var resource=new SolidColorBrush(palette[pair.Value].Color);resource.Freeze();app.Resources[pair.Key]=resource;}
+        foreach(Window window in app.Windows)Ui.RefreshWindowChrome(window);
+        if(changed)Changed?.Invoke();
     }
     public static SolidColorBrush Brush(string canonicalHex)
     {
+        if(paletteKeys.Contains(canonicalHex))
+        {
+            if(!palette.TryGetValue(canonicalHex,out var shared)){shared=new SolidColorBrush(Parse(Resolve(canonicalHex)));palette[canonicalHex]=shared;}
+            if(shared.CheckAccess())return shared;
+            // A worker thread cannot use the UI thread's live brush.
+            var copy=new SolidColorBrush(Parse(Resolve(canonicalHex)));copy.Freeze();return copy;
+        }
         string resolved=Resolve(canonicalHex);
         if(brushes.TryGetValue(resolved,out var brush))return brush;
-        brush=new SolidColorBrush((Color)ColorConverter.ConvertFromString(resolved));brush.Freeze();brushes[resolved]=brush;return brush;
+        brush=new SolidColorBrush(Parse(resolved));brush.Freeze();brushes[resolved]=brush;return brush;
     }
     /// <summary>Win32 COLORREF (0x00BBGGRR) for the current theme.</summary>
     public static int ColorRef(string canonicalHex)

@@ -21,7 +21,10 @@ public sealed partial class FtpWorkspace
         var search=remote?remoteFilter:localFilter;search.Name=remote?"FtpRemoteSearch":"FtpLocalSearch";
         search.FontSize=11;search.MinHeight=28;search.ToolTip="현재 폴더의 파일명 검색 · 하위 폴더는 검색하지 않습니다 · Esc로 지우기";
         var label=Ui.Text("검색",11,"#8797AA");label.VerticalAlignment=VerticalAlignment.Center;label.Margin=new Thickness(2,0,7,0);DockPanel.SetDock(label,Dock.Left);row.Children.Add(label);
-        var delete=Ui.AsyncToolButton("삭제",()=>DeleteSelectionAsync(remote),"선택 항목 영구 삭제 · Delete");delete.Name=remote?"FtpRemoteDelete":"FtpLocalDelete";delete.Margin=new Thickness(4,0,0,0);DockPanel.SetDock(delete,Dock.Right);row.Children.Add(delete);
+        // Destructive action: separated from the search clear button and shown in a warning color.
+        var delete=Ui.AsyncToolButton("",()=>DeleteSelectionAsync(remote),"선택 항목 영구 삭제 · Delete 키");delete.Name=remote?"FtpRemoteDelete":"FtpLocalDelete";
+        var trash=Ui.Glyph("\uE74D",12);trash.Foreground=Ui.Brush("#E78494");trash.Margin=new Thickness(0,0,5,0);var deleteLabel=Ui.Text("삭제",12,"#E78494",true);deleteLabel.TextWrapping=TextWrapping.NoWrap;delete.Content=Ui.Row(trash,deleteLabel);
+        delete.Margin=new Thickness(0);DockPanel.SetDock(delete,Dock.Right);row.Children.Add(delete);var gap=Ui.Divider(18);DockPanel.SetDock(gap,Dock.Right);row.Children.Add(gap);
         if(remote)remoteDelete=delete;else localDelete=delete;
         var clear=Ui.ToolButton("×",()=>search.Clear(),"검색 지우기");clear.Margin=new Thickness(4,0,0,0);clear.Width=25;DockPanel.SetDock(clear,Dock.Right);row.Children.Add(clear);row.Children.Add(search);
         search.TextChanged+=(_,_)=>RenderFiles(remote);

@@ -14,12 +14,7 @@ public sealed partial class MainWindow
     private Button ftpModeButton=null!,terminalModeButton=null!;
     private void UpdateModeSwitch()
     {
-        foreach(var (button,selected) in new[]{(terminalModeButton,!ftpMode),(ftpModeButton,ftpMode)})
-        {
-            button.Background=selected?Ui.Brush("#25413F"):Brushes.Transparent;
-            if(button.Content is TextBlock label){label.Foreground=Ui.Brush(selected?"#DCE5F0":"#8797AA");}
-            System.Windows.Automation.AutomationProperties.SetItemStatus(button,selected?"선택됨":"");
-        }
+        Ui.SetSegment(terminalModeButton,!ftpMode);Ui.SetSegment(ftpModeButton,ftpMode);
     }
     private bool ftpMode;
 
@@ -32,12 +27,11 @@ public sealed partial class MainWindow
         void Select(bool folder)
         {
             library.Visibility=folder?Visibility.Collapsed:Visibility.Visible;sftpBrowserPanel.Visibility=folder?Visibility.Visible:Visibility.Collapsed;
-            devices.Background=Ui.Brush(folder?"#17212D":"#203A3C");folders.Background=Ui.Brush(folder?"#203A3C":"#17212D");
-            devices.BorderBrush=Ui.Brush(folder?"#2A394A":"#4A8D81");folders.BorderBrush=Ui.Brush(folder?"#4A8D81":"#2A394A");
+            Ui.SetSegment(devices,!folder);Ui.SetSegment(folders,folder);
             if(folder)sftpBrowserPanel.Refresh();
         }
         devices=Ui.ToolButton("설비",()=>Select(false),"저장한 설비 목록");folders=Ui.ToolButton("SSH Browser",()=>Select(true),"SSH 연결의 SFTP 파일 탐색기");
-        var tabs=Ui.Columns(devices,folders);tabs.Margin=new Thickness(10,10,6,0);panel.Children.Add(tabs);Select(false);return panel;
+        var tabs=Ui.Segmented(true,devices,folders);tabs.Margin=new Thickness(12,12,12,0);panel.Children.Add(tabs);Select(false);return panel;
     }
     private async Task ConnectFtpSafeAsync(FtpSite site,string password)
     {

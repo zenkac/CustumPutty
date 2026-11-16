@@ -23,11 +23,11 @@ public sealed partial class FtpWorkspace
     }
     private FrameworkElement BuildTreeChoice()
     {
-        var row=new Grid{Margin=new Thickness(0,11,0,5)};
-        row.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star)});row.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star)});
         localTreeButton=Ui.ToolButton("내 PC",()=>ActivatePane(false),"내 PC 폴더 탐색");localTreeButton.Name="FtpLocalTreeChoice";
         remoteTreeButton=Ui.ToolButton("FTP 서버",()=>ActivatePane(true),"연결된 서버 폴더 탐색");remoteTreeButton.Name="FtpRemoteTreeChoice";
-        row.Children.Add(localTreeButton);row.Children.Add(remoteTreeButton);SetColumn(remoteTreeButton,1);return row;
+        var title=Ui.Text("폴더",12,"#DCE5F0",true);title.Margin=new Thickness(0,0,0,7);
+        var panel=Ui.Stack(title,Ui.Segmented(true,localTreeButton,remoteTreeButton));
+        return new Border{Child=panel,BorderBrush=Ui.Brush("#2A394A"),BorderThickness=new Thickness(0,1,0,0),Padding=new Thickness(0,11,0,0),Margin=new Thickness(0,8,0,4)};
     }
     private void ActivatePane(bool remote)
     {
@@ -51,7 +51,7 @@ public sealed partial class FtpWorkspace
         paneSplitter.Visibility=single?Visibility.Collapsed:Visibility.Visible;
         folderTree.Visibility=activeRemote?Visibility.Visible:Visibility.Collapsed;
         localFolderTree.Visibility=activeRemote?Visibility.Collapsed:Visibility.Visible;
-        localTreeButton.Background=Ui.Brush(activeRemote?"#17212D":"#203A3C");remoteTreeButton.Background=Ui.Brush(activeRemote?"#203A3C":"#17212D");
+        Ui.SetSegment(localTreeButton,!activeRemote);Ui.SetSegment(remoteTreeButton,activeRemote);
         singlePaneButton.Content=Ui.Text(single?"두 창 보기":"한 창 보기",12,"#DCE5F0",true);
         singlePaneButton.Background=Ui.Brush(single?"#203A3C":"#17212D");
         UpdateTransferLabels();

@@ -13,7 +13,15 @@ public sealed partial class MainWindow
     {
         SetStatus(item.Host+":"+item.Port+" 응답 확인 중…");var ok=await NetworkTools.PortOpenAsync(item.Host,item.Port,3000);SetStatus(ok?"포트 응답 있음 · 로그인 성공 여부는 접속 후 확인하세요":"포트 응답 없음 · IP, 포트, 설비 상태와 네트워크 경로를 확인하세요");
     }
-    private void OpenSettings(){var preferences=Dialogs.Settings(this,store.Settings);if(preferences==null)return;store.Settings=preferences;store.Save();RefreshHome();_ = UpdateXStatusAsync();SetStatus(preferences.ThemeId!=ThemeService.Current.Id?"설정 저장됨 · 선택한 테마는 앱을 다시 열면 적용됩니다":"설정 저장됨 · 변경한 터미널 설정은 새 접속부터 적용됩니다");}
+    private void OpenSettings()
+    {
+        string previousTheme=store.Settings.ThemeId;var preferences=Dialogs.Settings(this,store.Settings);if(preferences==null)return;
+        store.Settings=preferences;store.Save();RefreshHome();_ = UpdateXStatusAsync();
+        bool themeChanged=preferences.ThemeId!=previousTheme,openTerminals=sessions.Any(p=>p.Host.HasProcess);
+        SetStatus(themeChanged&&openTerminals?"설정 저장됨 · "+ThemeService.Current.Name+" 테마 적용 · 열린 터미널은 재연결하면 새 색상이 적용됩니다"
+            :themeChanged?"설정 저장됨 · "+ThemeService.Current.Name+" 테마를 적용했습니다"
+            :"설정 저장됨 · 변경한 터미널 설정은 새 접속부터 적용됩니다");
+    }
     private async Task StartXAsync(){SetStatus(await xServer.EnsureAsync(store.Settings));await UpdateXStatusAsync();}
     private async Task UpdateXStatusAsync()
     {
@@ -55,7 +63,7 @@ public sealed partial class MainWindow
         {
             if(new FileInfo(picker.FileName).Length>10_000_000)throw new InvalidDataException("백업 파일이 너무 큽니다.");
             var imported=AppStore.ReadImport(File.ReadAllText(picker.FileName));
-            if(MessageBox.Show(this,$"설비 {imported.Equipment.Count}개, FTP 사이트 {imported.FtpSites.Count}개와 명령 {imported.Snippets.Count}개를 현재 목록에 추가하고, 공통 설정을 가져올까요?","백업 가져오기",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
+            if(!Dialogs.Confirm(this,"백업 가져오기",$"설비 {imported.Equipment.Count}개, FTP 사이트 {imported.FtpSites.Count}개와 명령 {imported.Snippets.Count}개를 현재 목록에 추가하고, 공통 설정을 가져올까요?","가져오기"))return;
             foreach(var item in imported.Equipment)if(!store.Equipment.Any(p=>p.Host==item.Host&&p.Port==item.Port&&p.Name==item.Name&&p.Protocol==item.Protocol)){item.Id=Guid.NewGuid().ToString("N");store.Equipment.Add(item);}
             foreach(var site in imported.FtpSites)if(!store.FtpSites.Any(p=>p.Host==site.Host&&p.Port==site.Port&&p.Username==site.Username&&p.Name==site.Name)){site.Id=Guid.NewGuid().ToString("N");store.FtpSites.Add(site);}
             foreach(var item in imported.Snippets)if(!store.Snippets.Any(p=>p.Name==item.Name&&p.Command==item.Command))store.Snippets.Add(item);
@@ -169,7 +177,7 @@ public sealed class SessionPane : Grid
     }
     private async Task ReconnectAsync()
     {
-        if(Host.HasProcess&&MessageBox.Show(owner,"현재 세션을 종료하고 다시 접속할까요?","재연결",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
+        if(Host.HasProcess&&!Dialogs.Confirm(owner,"재연결","현재 세션을 종료하고 다시 접속할까요?","재연결"))return;
         Sftp.Disconnect();Host.CloseSession();Host.Visibility=Visibility.Visible;overlay.Text="터미널 재시작 중…";await ConnectAsync();
     }
     private Preferences GuiPreferences()

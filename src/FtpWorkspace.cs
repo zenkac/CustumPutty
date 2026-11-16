@@ -37,17 +37,21 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
         transferButton=Ui.ToolButton("전송창",()=>SetTransfersVisible(transferContent.Visibility!=Visibility.Visible),"진행 상황과 전송 히스토리 보기");
         uploadButton.Name="FtpUpload";downloadButton.Name="FtpDownload";folderButton.Name="FtpNewFolder";transferButton.Name="FtpTransfers";connectButton.Name="FtpConnect";
         var toolbar=new WrapPanel{Margin=new Thickness(10,7,8,7),VerticalAlignment=VerticalAlignment.Center};
-        var label=Ui.Text("FTP",11,"#5DD6BE",true);label.VerticalAlignment=VerticalAlignment.Center;label.Margin=new Thickness(2,0,14,0);toolbar.Children.Add(label);
-        foreach(var button in new[]{connectButton,disconnectButton,refreshButton,uploadButton,downloadButton,folderButton,transferButton})toolbar.Children.Add(button);
-        iconViewButton=Ui.ToolButton("▦ 아이콘",()=>SetFileView(true));iconViewButton.Name="FtpIconView";
-        listViewButton=Ui.ToolButton("☷ 목록",()=>SetFileView(false));listViewButton.Name="FtpListView";
-        toolbar.Children.Add(iconViewButton);toolbar.Children.Add(listViewButton);AddExplorerActions(toolbar);Children.Add(new Border{Background=Ui.Brush("#17212D"),BorderThickness=new Thickness(0,0,0,1),BorderBrush=Ui.Brush("#2A394A"),Child=toolbar});
+        foreach(var button in new[]{connectButton,disconnectButton,refreshButton})toolbar.Children.Add(button);toolbar.Children.Add(Ui.Divider());
+        foreach(var button in new[]{uploadButton,downloadButton,folderButton})toolbar.Children.Add(button);toolbar.Children.Add(Ui.Divider());
+        iconViewButton=Ui.ToolButton("▦ 아이콘",()=>SetFileView(true),"파일을 큰 아이콘으로 보기");iconViewButton.Name="FtpIconView";
+        listViewButton=Ui.ToolButton("☷ 목록",()=>SetFileView(false),"이름·크기·유형·날짜 목록으로 보기");listViewButton.Name="FtpListView";
+        toolbar.Children.Add(iconViewButton);toolbar.Children.Add(listViewButton);toolbar.Children.Add(Ui.Divider());AddExplorerActions(toolbar);toolbar.Children.Add(Ui.Divider());toolbar.Children.Add(transferButton);Children.Add(new Border{Background=Ui.Brush("#17212D"),BorderThickness=new Thickness(0,0,0,1),BorderBrush=Ui.Brush("#2A394A"),Child=toolbar});
 
-        var body=new Grid();body.ColumnDefinitions.Add(new(){Width=new GridLength(202),MinWidth=160,MaxWidth=330});body.ColumnDefinitions.Add(new(){Width=new GridLength(4)});body.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star)});
-        var navigation=new Grid{Margin=new Thickness(10,10,8,8)};foreach(var height in new[]{GridLength.Auto,GridLength.Auto,new GridLength(.9,GridUnitType.Star),GridLength.Auto,new GridLength(1,GridUnitType.Star)})navigation.RowDefinitions.Add(new(){Height=height});
-        navigation.RowDefinitions[2].MinHeight=48;navigation.RowDefinitions[2].MaxHeight=210;navigation.RowDefinitions[4].MinHeight=60;
-        var siteHeading=new DockPanel();var siteActions=Ui.Row(Ui.ToolButton("＋",AddSite,"FTP 사이트 추가"),Ui.ToolButton("•••",ShowSiteMenu,"선택한 FTP 사이트 편집 / 삭제"));DockPanel.SetDock(siteActions,Dock.Right);siteHeading.Children.Add(siteActions);var siteTitle=Ui.Text("사이트맵",12,"#DCE5F0",true);siteTitle.VerticalAlignment=VerticalAlignment.Center;siteHeading.Children.Add(siteTitle);navigation.Children.Add(siteHeading);
-        siteSearch.MinHeight=29;siteSearch.FontSize=11;siteSearch.ToolTip="사이트 이름 · IP 검색";siteSearch.TextChanged+=(_,_)=>RefreshSites();var siteSearchField=Ui.WithPlaceholder(siteSearch,"사이트 · IP 검색");siteSearchField.Margin=new Thickness(0,6,0,6);navigation.Children.Add(siteSearchField);SetRow(siteSearchField,1);
+        var body=new Grid();body.ColumnDefinitions.Add(new(){Width=new GridLength(224),MinWidth=170,MaxWidth=340});body.ColumnDefinitions.Add(new(){Width=new GridLength(4)});body.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star)});
+        // The site list takes only the height it needs (up to ~40% of the panel)
+        // so the folder tree directly follows it instead of floating mid-panel.
+        var navigation=new Grid{Margin=new Thickness(12,12,10,8)};foreach(var height in new[]{GridLength.Auto,GridLength.Auto,GridLength.Auto,GridLength.Auto,new GridLength(1,GridUnitType.Star)})navigation.RowDefinitions.Add(new(){Height=height});
+        navigation.RowDefinitions[4].MinHeight=60;sites.MinHeight=40;navigation.SizeChanged+=(_,_)=>sites.MaxHeight=Math.Max(40,Math.Min(navigation.ActualHeight*.4,navigation.ActualHeight-230));
+        var addSite=Ui.ToolButton("",AddSite,"FTP 사이트 추가");addSite.Content=Ui.Glyph("\uE710",12);addSite.Width=28;addSite.Margin=new Thickness(0);System.Windows.Automation.AutomationProperties.SetName(addSite,"FTP 사이트 추가");
+        var siteMenu=Ui.ToolButton("",ShowSiteMenu,"선택한 FTP 사이트 편집 / 삭제");siteMenu.Content=Ui.Glyph("\uE712",14);siteMenu.Width=28;siteMenu.Margin=new Thickness(0);System.Windows.Automation.AutomationProperties.SetName(siteMenu,"사이트 메뉴");
+        var siteHeading=new DockPanel();var siteActions=Ui.Row(addSite,siteMenu);DockPanel.SetDock(siteActions,Dock.Right);siteHeading.Children.Add(siteActions);var siteTitle=Ui.Text("사이트맵",13,"#DCE5F0",true);siteTitle.VerticalAlignment=VerticalAlignment.Center;siteHeading.Children.Add(siteTitle);navigation.Children.Add(siteHeading);
+        siteSearch.MinHeight=29;siteSearch.FontSize=11;siteSearch.ToolTip="사이트 이름 · IP 검색";siteSearch.TextChanged+=(_,_)=>RefreshSites();var siteSearchField=Ui.WithPlaceholder(siteSearch,"사이트 · IP 검색");siteSearchField.Margin=new Thickness(0,8,0,8);navigation.Children.Add(siteSearchField);SetRow(siteSearchField,1);
         navigation.Children.Add(sites);SetRow(sites,2);sites.MouseDoubleClick+=async (_,_)=>{if(sites.SelectedItem is ListBoxItem item&&item.IsMouseOver&&item.Tag is FtpSite site)await ConnectSavedSafeAsync(site);};sites.KeyDown+=async (_,e)=>{if(e.Key==Key.Enter&&SelectedSite!=null){e.Handled=true;await ConnectSavedSafeAsync(SelectedSite);}};
         var treeHeading=BuildTreeChoice();navigation.Children.Add(treeHeading);SetRow(treeHeading,3);
         folderTree=new FtpFolderTree(session,NavigateRemoteSafeAsync){Name="FtpDirectoryTree"};navigation.Children.Add(folderTree);SetRow(folderTree,4);
@@ -93,7 +97,9 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
     private static ListBox FilesList()
     {
         var list=new ListBox{Background=Ui.Brush("#111923"),Foreground=Ui.Brush("#DCE5F0"),SelectionMode=SelectionMode.Extended,Margin=new Thickness(4,0,4,0),Padding=new Thickness(0),HorizontalContentAlignment=HorizontalAlignment.Stretch};
-        list.Resources[SystemColors.ControlBrushKey]=Ui.Brush("#111923");return list;
+        // Resource dictionaries freeze their brushes, so refresh this one on theme changes.
+        void Canvas(){var brush=new SolidColorBrush(ThemeService.Brush("#111923").Color);brush.Freeze();list.Resources[SystemColors.ControlBrushKey]=brush;}
+        Canvas();ThemeService.Changed+=Canvas;list.Unloaded+=(_,_)=>ThemeService.Changed-=Canvas;list.Loaded+=(_,_)=>{ThemeService.Changed-=Canvas;ThemeService.Changed+=Canvas;Canvas();};return list;
     }
     private FrameworkElement BuildFilePane(bool remote)
     {
@@ -125,11 +131,11 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
             var detail=Ui.Text(site.Host+":"+site.Port,10,"#8797AA");detail.TextWrapping=TextWrapping.NoWrap;detail.TextTrimming=TextTrimming.CharacterEllipsis;detail.Margin=new Thickness(0,3,0,0);
             var item=new ListBoxItem{Content=Ui.Stack(name,detail),Tag=site,Padding=new Thickness(7,6,7,6),ToolTip=site.Username+" @ "+site.Host+"\n"+site.InitialPath};sites.Items.Add(item);if(site.Id==selected)item.IsSelected=true;
         }
-        if(sites.Items.Count==0)sites.Items.Add(new ListBoxItem{Content=Ui.Text(query.Length>0?"검색 결과가 없습니다":"＋ 버튼으로 자주 쓰는 서버를 저장하세요.",11,"#8797AA"),IsEnabled=false});
+        if(sites.Items.Count==0)sites.Items.Add(new ListBoxItem{Content=Ui.Text(query.Length>0?"검색 결과가 없습니다":"+ 버튼으로 자주 쓰는 서버를 저장하세요.",11,"#8797AA"),IsEnabled=false});
     }
     private void AddSite(){var request=FtpDialogs.EditSite(owner,new FtpSite());if(request==null)return;store.FtpSites.Add(request.Site);SaveStore();RefreshSites();}
     private void EditSite(){var original=SelectedSite;if(original==null)return;var request=FtpDialogs.EditSite(owner,original);if(request==null)return;int index=store.FtpSites.IndexOf(original);if(index>=0)store.FtpSites[index]=request.Site;SaveStore();RefreshSites();}
-    private void RemoveSite(){var site=SelectedSite;if(site==null)return;if(MessageBox.Show(owner,$"‘{site.Name}’ 사이트를 사이트맵에서 삭제할까요?","사이트 삭제",MessageBoxButton.OKCancel,MessageBoxImage.Question)!=MessageBoxResult.OK)return;store.FtpSites.Remove(site);SaveStore();RefreshSites();}
+    private void RemoveSite(){var site=SelectedSite;if(site==null)return;if(!Dialogs.Confirm(owner,"사이트 삭제",$"‘{site.Name}’ 사이트를 사이트맵에서 삭제할까요? 서버의 파일은 그대로 남습니다.","삭제",true))return;store.FtpSites.Remove(site);SaveStore();RefreshSites();}
     private void ShowSiteMenu(){var menu=new ContextMenu();Menu(menu,"사이트 추가",AddSite);Menu(menu,"선택한 사이트 편집",EditSite,SelectedSite!=null);Menu(menu,"선택한 사이트 삭제",RemoveSite,SelectedSite!=null);sites.ContextMenu=menu;menu.PlacementTarget=sites;menu.IsOpen=true;}
     private async Task QuickConnectAsync(){var request=FtpDialogs.EditSite(owner,store.LastFtpConnection?.Copy()??new FtpSite(),true);if(request!=null)await ConnectAsync(request.Site,request.Password);}
     private async Task ConnectSavedSafeAsync(FtpSite site)

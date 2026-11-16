@@ -29,6 +29,28 @@ public sealed class FormDialog : Window
 
 public static class Dialogs
 {
+    /// <summary>Themed yes/no confirmation. Destructive actions keep Cancel as the default button.</summary>
+    public static bool Confirm(Window? owner,string title,string message,string accept="확인",bool danger=false)
+    {
+        if(owner==null||!owner.IsVisible)return MessageBox.Show(message,title,MessageBoxButton.YesNo,MessageBoxImage.Question)==MessageBoxResult.Yes;
+        var dialog=new FormDialog(owner,title,460,compact:true);
+        dialog.Body.Children.Add(Ui.Text(message,13,"#DCE5F0"));
+        var cancel=Ui.Button("취소",()=>dialog.DialogResult=false);cancel.Name="ConfirmCancel";cancel.IsCancel=true;
+        var ok=Ui.Button(accept,()=>dialog.DialogResult=true,!danger);ok.Name="ConfirmAccept";
+        if(danger&&ok.Content is TextBlock label)label.Foreground=Ui.Brush("#E78494");
+        (danger?cancel:ok).IsDefault=true;
+        dialog.Actions.Children.Add(cancel);dialog.Actions.Children.Add(ok);dialog.Loaded+=(_,_)=>(danger?cancel:ok).Focus();
+        return dialog.ShowDialog()==true;
+    }
+    /// <summary>Themed notice with a copy action, used for errors and warnings.</summary>
+    public static void Notice(Window owner,string title,string message)
+    {
+        var dialog=new FormDialog(owner,title,460,compact:true);
+        dialog.Body.Children.Add(Ui.Text(message,13,"#DCE5F0"));
+        var copy=Ui.Button("내용 복사",()=>Ui.Copy(message));
+        var close=Ui.Button("확인",()=>dialog.DialogResult=true,true);close.IsDefault=true;close.IsCancel=true;
+        dialog.Actions.Children.Add(copy);dialog.Actions.Children.Add(close);dialog.Loaded+=(_,_)=>close.Focus();dialog.ShowDialog();
+    }
     public static Equipment? EquipmentEditor(Window owner,Equipment original)
     {
         var item=original.Copy();var dialog=new FormDialog(owner,"설비 설정");
@@ -126,6 +148,9 @@ public static class Dialogs
         var auto=new CheckBox{Content="설비에 연결할 때 Xming을 자동으로 실행",IsChecked=item.AutoStartX};
         var external=new CheckBox{Content="PuTTY를 탭 대신 별도 창에서 사용",IsChecked=item.ExternalTerminal};
         var theme=new ComboBox{Name="ThemeSelector",ItemsSource=ThemeService.All,DisplayMemberPath="Name",SelectedValuePath="Id",SelectedValue=item.ThemeId};
+        // Selecting a theme previews it everywhere at once; Cancel restores the running theme.
+        string runningTheme=ThemeService.Current.Id;
+        theme.SelectionChanged+=(_,_)=>{if(theme.SelectedValue is string id)ThemeService.Apply(id);};
         dialog.Body.Children.Add(Ui.Section("X 서버 (Xming)","한 번 설정하면 다음 접속부터 같은 X 서버 설정을 자동으로 사용합니다.",true));
         var xStatus=Ui.Text("○  X 서버 확인 중…",12,"#8797AA",true);xStatus.VerticalAlignment=VerticalAlignment.Center;xStatus.Name="XServerStatus";
         async Task CheckX()
@@ -156,7 +181,7 @@ public static class Dialogs
         var networkHint=Ui.Text("Telnet GUI는 설비 → PC의 TCP 6000 + 디스플레이 번호로 연결됩니다. 기존 방화벽과 X 서버 접근 설정을 사용합니다.",11,"#98ACC4");networkHint.Margin=new Thickness(0,0,0,12);dialog.Body.Children.Add(networkHint);
         dialog.Body.Children.Add(Ui.Field("Xauthority 파일 · SSH 전달에 필요한 경우",PathInput(auth,"모든 파일|*.*",dialog)));
         dialog.Body.Children.Add(Ui.Section("화면 · 터미널"));
-        dialog.Body.Children.Add(Ui.Field("화면 테마",theme,"설정 저장 후 앱을 다시 열면 메뉴와 터미널에 함께 적용됩니다."));
+        dialog.Body.Children.Add(Ui.Field("화면 테마",theme,"고르면 바로 적용됩니다. 이미 열려 있는 터미널은 다시 연결하면 새 색상으로 바뀝니다."));
         dialog.Body.Children.Add(Ui.Columns(Ui.Field("터미널 글자 크기",font),Ui.Field("스크롤 보관 줄 수",scrollback)));
         dialog.Body.Children.Add(external);
         dialog.Actions.Children.Add(Ui.Button("취소",()=>dialog.DialogResult=false));
@@ -165,12 +190,14 @@ public static class Dialogs
             try
             {
                 if(!int.TryParse(display.Text,out var number)||!int.TryParse(font.Text,out var size)||!int.TryParse(scrollback.Text,out var lines))throw new ArgumentException("디스플레이 번호, 글자 크기, 보관 줄 수에 숫자를 입력해 주세요.");
-                item.ThemeId=theme.SelectedValue as string??"midnight";
+                item.ThemeId=theme.SelectedValue as string??ThemeService.DefaultId;
                 item.XServerPath=server.Text.Trim();item.XLaunchPath=launcher.Text.Trim();item.XLaunchConfig=config.Text.Trim();item.XAuthorityFile=auth.Text.Trim();item.PcAddress=pc.Text.Trim();item.DisplayNumber=number;item.FontSize=size;item.Scrollback=lines;item.AutoStartX=auto.IsChecked==true;item.ExternalTerminal=external.IsChecked==true;item.Validate();dialog.DialogResult=true;
             }
             catch(Exception exception){Ui.Error(exception);}
         },true);saveSettings.Name="SaveSettings";dialog.Actions.Children.Add(saveSettings);
-        return dialog.ShowDialog()==true?item:null;
+        bool accepted=dialog.ShowDialog()==true;
+        if(!accepted)ThemeService.Apply(runningTheme);
+        return accepted?item:null;
     }
     public static void Snippets(Window owner,AppStore store,Action<string>? choose=null)
     {
@@ -200,7 +227,7 @@ public static class Dialogs
             ("06  터미널 분할과 집중","상단에서 단일·좌우·상하·4분할을 선택하세요. 분할 경계를 드래그하면 크기를 바꿀 수 있습니다. 제목을 더블클릭하거나 Ctrl+Shift+Enter로 선택한 패널을 확대·복원합니다. F11 집중 모드는 메뉴와 사이드바를 숨깁니다. 다른 탭을 선택해도 기존 연결은 유지됩니다."),
             ("07  단축키와 명령","Ctrl+Shift+K 빠른 접속 / Ctrl+Shift+B 설비 목록 / Ctrl+Shift+J 명령 입력. 명령 입력에서 Ctrl+Enter는 현재 터미널에만 실행합니다. 분할 화면에서 숨겨진 탭을 선택하면 선택된 패널만 바뀝니다. 드래그 복사 / Shift+Insert 붙여넣기 / Shift+PageUp·PageDown 스크롤을 지원합니다."),
             ("08  ID와 비밀번호 저장","설비 편집에서 로그인 ID와 비밀번호를 저장할 수 있습니다. 비밀번호는 Windows 계정으로 암호화합니다. 로그인 프롬프트에서 상단 로그인 → ID 입력 / 비밀번호 입력을 선택하고 Enter를 누르세요. 비밀번호는 백업 내보내기에 포함하지 않으므로 다른 PC에서는 다시 입력하세요."),
-            ("09  화면 테마","설정의 화면 테마에서 Midnight · 민트 / Graphite · 앰버 / Nord · 블루를 선택할 수 있습니다. 저장 후 앱을 다시 열면 메뉴와 터미널 색상이 함께 바뀝니다. 기존 연결을 자동으로 끊지 않습니다."),
+            ("09  화면 테마","설정의 화면 테마에서 Midnight · 민트 / Graphite · 앰버 / Nord · 블루를 선택할 수 있습니다. 고르는 즉시 메뉴와 창 색상이 바뀌고, 새로 여는 터미널도 같은 색을 사용합니다. 이미 열린 터미널은 연결을 끊지 않으며 재연결하면 새 색상이 적용됩니다."),
             ("데이터 및 구성","설정과 로그: "+AppPaths.Root+"\n터미널 설정 변경은 새 접속부터, 테마 변경은 앱을 다시 열 때 적용됩니다. 앱 종료 시 열려 있는 접속을 확인하며, 실행 중인 X 서버는 계속 둡니다. PuTTY 0.85(MIT)를 포함하고 Xming/VcXsrv는 기존 설치를 사용합니다.")
         };
         foreach(var (title,text) in sections){var heading=Ui.Text(title,15,"#69DDC0",true);heading.Margin=new Thickness(0,14,0,7);dialog.Body.Children.Add(heading);dialog.Body.Children.Add(Ui.Text(text,13,"#BDCCDD"));}
