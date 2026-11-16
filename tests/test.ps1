@@ -4,7 +4,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 $taskRoot=Split-Path -Parent $PSScriptRoot
-if(-not $Executable){$Executable=Join-Path $taskRoot 'artifacts\portable-v1.8.2\EquipLink.exe'}
+if(-not $Executable){$Executable=Join-Path $taskRoot 'artifacts\portable-v1.8.3\EquipLink.exe'}
 $taskExe=(Resolve-Path -LiteralPath $Executable).Path
 $taskAllowed=@('self','dialog','login','smoke','focus','theme','ftp','ftp-tools','ftp-ui','ftp-drag','ftp-explorer','ftp-delete','sftp')
 $taskPreviousFixture=$env:EQUIPLINK_SFTP_FIXTURE
