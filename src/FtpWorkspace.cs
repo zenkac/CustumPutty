@@ -181,7 +181,7 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
         if(stamp!=remoteStamp)
         {
             remoteStamp=stamp;string folder=(session.Site?.Id??"")+"|"+session.CurrentPath;
-            if(folder!=filterFolder){filterFolder=folder;remoteFilter.Clear();}RenderFiles(true);
+            if(folder!=filterFolder){filterFolder=folder;remoteFilter.Clear();remoteMessage="";}RenderFiles(true);
         }
         remoteCount.Text=session.Error.Length>0?session.Error:session.IsConnected?$"{session.Entries.Count:N0}개 항목 · {session.EncodingDisplay}"+(session.ListingNotice.Length>0?" · "+session.ListingNotice:""):"일반 FTP · 사이트맵에 IP · ID · 비밀번호를 저장할 수 있습니다.";
         remoteCount.ToolTip=remoteCount.Text;terminalHelper?.SetServer(session.Site,session.CurrentPath);UpdateFileCounts();folderTree.Refresh();UpdateButtons();
@@ -226,7 +226,12 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
     private void DownloadEntries(FtpEntry[] selected,string? destination=null)
     {
         if(terminalMode&&destination==null){terminalHelper?.ChooseServerFiles(selected,session.CurrentPath);return;}
-        if(!session.IsConnected||session.IsBusy||deleting||localPath.Length==0||selected.Length==0)return;string password=session.PasswordForTransfer();
+        // Transfers use their own connections and absolute paths, so a folder
+        // read on the browsing connection does not need to block a download.
+        if(selected.Length==0)return;
+        string? blocked=!session.IsConnected?"서버 연결이 끊겨 다운로드할 수 없습니다. 다시 연결해 주세요.":deleting?"삭제가 끝난 뒤 다시 시도해 주세요.":localPath.Length==0?"내 PC 폴더를 먼저 선택해 주세요.":null;
+        if(blocked!=null){remoteMessage=blocked;UpdateFileCounts();return;}
+        string password=session.PasswordForTransfer();
         try
         {
             foreach(var entry in selected)
@@ -236,6 +241,7 @@ public sealed partial class FtpWorkspace : Grid,IDisposable
                 if(entry.IsDirectory)queue.EnqueueDownloadDirectory(session.Site!,password,entry.FullPath,target);else queue.EnqueueDownload(session.Site!,password,entry.FullPath,target,entry.Size);
             }
             SwitchTransferView(false);SetTransfersVisible(true);
+            remoteMessage=selected.Length==1?$"다운로드 대기열에 추가: {selected[0].Name}":$"다운로드 대기열에 추가: {selected.Length:N0}개";UpdateFileCounts();
         }
         catch(Exception error){Ui.Error(error);}finally{password="";}
     }

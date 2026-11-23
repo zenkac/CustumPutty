@@ -104,6 +104,22 @@ internal static class FtpDragTests
                 Check(view+" folder double-click still navigates without queuing a download",queue.Items.Count==before&&session.CurrentPath=="/workspace/target");
                 await session.NavigateAsync("/workspace");await Settle(owner);
             }
+            {
+                // A slow folder-tree read must not disable the list or swallow a double-click.
+                string busyDestination=Path.Combine(local,"double-click-busy");Directory.CreateDirectory(busyDestination);
+                await workspace.NavigateLocalForTestAsync(busyDestination);await Settle(owner);
+                server.ListDelayMs=1500;var treeRead=session.ListFoldersAsync("/");await Task.Delay(150);await Settle(owner);
+                Check("Background folder-tree reads keep the server list enabled",!session.IsBusy&&remote.IsEnabled&&!treeRead.IsCompleted);
+                int before=queue.Items.Count;var file=remote.Items.OfType<ListBoxItem>().First(x=>x.Tag is FtpEntry{IsDirectory:false});
+                DoubleClick(remote,(DependencyObject)file.Content);
+                Check("Double-click during a background folder read queues the download at once",queue.Items.Count==before+1&&!treeRead.IsCompleted);
+                await treeRead;server.ListDelayMs=0;await queue.WaitForIdleAsync();await Settle(owner);
+                Check("The download started during the folder read completes",queue.Items.First().Status=="완료"&&File.Exists(Path.Combine(busyDestination,((FtpEntry)file.Tag).Name)));
+                server.ListingAccessRoot="/workspace";
+                try{await session.ListFoldersAsync("/");}catch(Exception){}
+                server.ListingAccessRoot=null;await Settle(owner);
+                Check("A denied parent-folder read does not replace the visible listing status",session.Error.Length==0&&session.IsConnected&&remote.IsEnabled);
+            }
             await workspace.NavigateLocalForTestAsync(local);
             Find<Button>(workspace,"FtpIconView").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Settle(owner);
 

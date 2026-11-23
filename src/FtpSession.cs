@@ -73,10 +73,13 @@ public sealed class FtpSession : IDisposable
     public async Task<IReadOnlyList<FtpEntry>> ListFoldersAsync(string path)
     {
         IReadOnlyList<FtpEntry> result=[];
-        await BrowseAsync(async (connection,token)=>result=(await connection.ListAsync(path,token)).Where(e=>e.IsDirectory&&!e.IsLink).ToArray());
+        // Folder-tree reads run in the background. They must not mark the file
+        // list busy (which disables it and drops double-clicks) or replace the
+        // visible listing status with an unrelated parent-folder error.
+        await BrowseAsync(async (connection,token)=>result=(await connection.ListAsync(path,token)).Where(e=>e.IsDirectory&&!e.IsLink).ToArray(),background:true);
         return result;
     }
-    private async Task BrowseAsync(Func<FtpClient,CancellationToken,Task> operation)
+    private async Task BrowseAsync(Func<FtpClient,CancellationToken,Task> operation,bool background=false)
     {
         ObjectDisposedException.ThrowIf(disposed,this);
         int version=generation;var token=lifetime.Token;
@@ -86,6 +89,7 @@ public sealed class FtpSession : IDisposable
             token.ThrowIfCancellationRequested();
             var connection=client;
             if(connection?.IsConnected!=true)throw new InvalidOperationException("먼저 FTP 서버에 연결해 주세요.");
+            if(background){await operation(connection,token);token.ThrowIfCancellationRequested();return;}
             busy++;Error="";Changed?.Invoke();
             try{await operation(connection,token);token.ThrowIfCancellationRequested();}
             catch(Exception error){if(version==generation)Error=error.Message;throw;}
