@@ -12,7 +12,7 @@ public sealed partial class MainWindow
     private SftpBrowserPanel? sftpBrowserPanel;
     private Grid terminalRegion=null!;
     private Button ftpModeButton=null!,terminalModeButton=null!,viModeButton=null!;
-    private ViPracticeWorkspace? viWorkspace;
+    private PracticeWorkspace? viWorkspace;
     private void UpdateModeSwitch()
     {
         Ui.SetSegment(terminalModeButton,TerminalMode);Ui.SetSegment(ftpModeButton,ftpMode);Ui.SetSegment(viModeButton,viMode);
@@ -47,7 +47,7 @@ public sealed partial class MainWindow
     private void SetWorkMode(string mode)
     {
         bool show=mode=="ftp",vi=mode=="vi";
-        if(vi&&viWorkspace==null){viWorkspace=new ViPracticeWorkspace();root.Children.Add(viWorkspace);Grid.SetRow(viWorkspace,1);Grid.SetColumnSpan(viWorkspace,2);}
+        if(vi&&viWorkspace==null){viWorkspace=new PracticeWorkspace();root.Children.Add(viWorkspace);Grid.SetRow(viWorkspace,1);Grid.SetColumnSpan(viWorkspace,2);}
         if(show&&ftpWorkspace==null)
         {
             ftpWorkspace=new FtpWorkspace(this,store,ftpSession,ftpQueue,()=>sessions.Where(p=>p.Host.HasProcess).Select(p=>new TerminalFtpTarget(
@@ -63,12 +63,12 @@ public sealed partial class MainWindow
         if(show)ftpWorkspace?.RefreshTerminalTargets();
         UpdateModeSwitch();
         ApplyChrome();RebuildTabs();
-        if(vi){viWorkspace!.FocusEditor();SetStatus("VI 연습 · 설비나 파일에 연결하지 않는 연습용 편집기입니다. 명령이 안 먹히면 Esc 를 누르세요.");}
+        if(vi){viWorkspace!.FocusEditor();SetStatus("연습 · vi 편집기와 터미널 명령어를 기초부터 연습합니다. 설비·파일·네트워크에는 연결하지 않습니다.");}
         if(TerminalMode)Dispatcher.BeginInvoke(()=>{foreach(var pane in VisiblePanesForTest)pane.Host.RefreshViewport();RestoreTerminalFocus();});
     }
     internal void ShowFtpForTest(bool show)=>ShowFtp(show);
     internal void ShowViForTest(bool show)=>ShowVi(show);
-    internal ViPracticeWorkspace? ViWorkspaceForTest=>viWorkspace;
+    internal PracticeWorkspace? ViWorkspaceForTest=>viWorkspace;
     internal bool TerminalModeForTest=>TerminalMode;
     internal FtpSession FtpSessionForTest=>ftpSession;
     internal FtpTransferQueue FtpQueueForTest=>ftpQueue;
