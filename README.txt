@@ -1,4 +1,4 @@
-﻿EquipLink 1.8.3 — Windows 설비 터미널 · FTP · SSH Browser
+﻿EquipLink 1.8.4 — Windows 설비 터미널 · FTP · SSH Browser
 =====================================================
 
 업데이트
@@ -6,6 +6,32 @@
 기존 EquipLink를 종료하고 ZIP의 압축을 푼 뒤 EquipLink.exe를 실행하세요.
 설비·FTP 사이트맵·저장된 로그인 정보·테마를 그대로 읽습니다.
 settings.json을 삭제하거나 다시 가져올 필요가 없습니다.
+
+1.8.4 [연습] vi 고급 · 터미널 명령어 연습 · FTP 더블클릭 수정
+-------------------------------------------------------------
+- 상단 [터미널 | FTP | 연습]의 [연습]에서 vi 편집기와 리눅스 터미널 명령어를 기초 · 중급 · 고급
+  순서로 연습합니다. 어디에도 연결하지 않으며 실제 파일 · 설비 · 네트워크를 쓰지 않습니다.
+  왼쪽 위 [vi 편집기 | 터미널 명령어]로 바꾸고, 과제마다 설명 · 단계 · [예시 입력 보기]가 있습니다.
+  오른쪽에는 단축키 / 명령어 모음이 있습니다.
+- vi 편집기 (29개 과제)
+  기초: 모드, 이동, 입력, 지우기, 복사 · 붙여넣기, 고쳐 쓰기, 되돌리기, 저장과 종료
+  중급: 검색, 치환, 화면 분할, 비주얼, 숫자 반복, 텍스트 객체(ciw ci" di( ), 마크(ma 'a),
+        보기 설정(:set nu rnu list ic), 줄 옮기기(:m :t), 입력 중 자동 완성(Ctrl+n)
+  고급: 매크로(qa … q @a @@), 레지스터("ayy "ap :reg), 자동 정렬(= == gg=G),
+        블록 선택(Ctrl+v I / $A), 색 구성표(:colo ron · desert 등, Tab 으로 고르기 · :syntax off),
+        정규식 치환(\d\+ \( \) \1 · :%s/\s\+$//), 전역 명령(:g/패턴/d :v :g/^/m0 :%norm),
+        숫자 늘리기(Ctrl+a · g Ctrl+a), 설정 파일(.vimrc · :so %)
+- 터미널 명령어 (23개 과제) — 연습용 가상 서버(eqp-server)와 FTP 서버(ftp-server)가 들어 있습니다.
+  기초: pwd · ls · cd, cat · head · tail, mkdir · cp · mv · rm -i, Tab 자동 완성 · ↑ · history
+  중급: find -name "*.log" · -mtime · -size · -exec, grep -i -n -c -r -l --include -A,
+        파이프와 리다이렉션(| > >> wc sort uniq), chmod +x 와 ./스크립트, tar czf / xzf, alias · 변수
+  고급: ftp -i 서버 로 mget, 묻는 mget · prompt · put · bin, sftp · scp, find | xargs,
+        awk · sed, ps -ef | grep · kill -9, df -h · du -sh, grep 으로 찾아 vi 로 고치기
+  연습 FTP 계정은 guest / guest 입니다. 터미널에서 vi 파일 을 입력하면 아래 화면이 vi 로 바뀌고
+  :wq 하면 터미널로 돌아옵니다. 붙여넣기는 PuTTY 처럼 마우스 오른쪽 버튼(또는 Ctrl+V)입니다.
+- FTP: 왼쪽 폴더 트리를 불러오는 동안에도 서버 파일 목록이 막히지 않아, 더블클릭 다운로드가
+  바로 대기열에 들어갑니다. 받을 수 없는 경우에는 이유를 목록 위에 표시합니다.
+- 기능 동작과 저장 형식은 1.8.3과 같습니다. 기존 설정을 그대로 사용합니다.
 
 1.8.3 테마 즉시 적용 · 앰버 기본 · FTP 왼쪽 배치 정리
 ------------------------------------------------------
@@ -332,7 +358,7 @@ Ctrl+Enter           명령 입력창의 내용을 현재 터미널에 실행
 실행
 ----
 배포 ZIP의 압축을 푼 뒤 같은 폴더의 EquipLink.exe를 실행하세요.
-원본 작업 폴더에서는 artifacts\portable-v1.8.3\EquipLink.exe에 있습니다.
+원본 작업 폴더에서는 artifacts\portable-v1.8.4\EquipLink.exe에 있습니다.
 설치와 별도 .NET 런타임이 필요 없는 Windows x64 프로그램입니다.
 Windows 10/11 x64를 대상으로 만들었습니다. 관리자 권한은 필요하지 않습니다.
 공식 PuTTY 0.85 엔진이 실행 파일에 포함되어 있습니다.
@@ -489,7 +515,7 @@ EquipLink는 PuTTY/Xming/MobaXterm 개발사의 공식 제품이 아닙니다.
 소스 빌드
 ---------
 .NET 10 SDK가 있는 Windows에서 프로젝트 폴더의 build.ps1 -Portable 실행.
-소스: src\  /  결과: artifacts\portable-v1.8.3\EquipLink.exe
+소스: src\  /  결과: artifacts\portable-v1.8.4\EquipLink.exe
 WPF와 내장 PuTTY를 사용하며 SFTP는 SSH.NET 2026.0.0을 사용합니다. NuGet 버전은 src\packages.lock.json에 기록됩니다.
 
 

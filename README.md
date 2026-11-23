@@ -5,10 +5,12 @@ PuTTY 기반 Telnet/SSH, Xming 실행 연동, FTP 파일 관리, SSH Browser를 
 
 ## 다운로드
 
-**[Windows x64 실행파일 ZIP 다운로드](https://github.com/zenkac/CustumPutty/releases/download/v1.8.3/EquipLink-v1.8.3-Windows-x64.zip)** · [릴리스 목록](https://github.com/zenkac/CustumPutty/releases)
+**[Windows x64 실행파일 ZIP 다운로드](https://github.com/zenkac/CustumPutty/releases/download/v1.8.4/EquipLink-v1.8.4-Windows-x64.zip)** · [릴리스 목록](https://github.com/zenkac/CustumPutty/releases)
 
-v1.8.3은 기본 테마를 Graphite · 앰버로 바꾸고, 설정에서 테마를 고르면 재시작 없이 바로 적용합니다.
-FTP 화면 왼쪽(사이트맵·폴더) 배치를 정리하고, 확인·오류 창을 앱과 같은 어두운 테마로 바꿨습니다.
+v1.8.4는 상단 [연습]에서 vi 편집기와 리눅스 터미널 명령어를 기초 · 중급 · 고급으로 연습할 수 있게 했습니다.
+vi 는 매크로 · 레지스터 · `=` 자동 정렬 · 블록 선택 · `:colo ron` 같은 고급 기능까지, 터미널은 연습용 가상 서버에서
+`find . -name "*.log"` · `grep` · 파이프 · `awk` · `ftp -i` 로 파일 받기까지 연습합니다. 어디에도 연결하지 않습니다.
+FTP 화면에서 폴더 트리를 읽는 중에도 더블클릭 다운로드가 바로 동작하도록 고쳤습니다.
 
 1. ZIP을 내려받아 압축을 풉니다.
 2. 기존 EquipLink가 실행 중이면 종료합니다.
@@ -63,7 +65,7 @@ cd CustumPutty
 .\build.ps1 -Portable
 ```
 
-배포용 결과: `artifacts\portable-v1.8.3\EquipLink.exe`
+배포용 결과: `artifacts\portable-v1.8.4\EquipLink.exe`
 
 `src/packages.lock.json`에 의존성 버전이 기록되어 있습니다.
 `vendor/nuget`에는 앱이 사용하는 네 개의 NuGet 패키지가 포함되어 있습니다.
