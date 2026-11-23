@@ -34,6 +34,12 @@ public partial class App : Application
                 Directory.CreateDirectory(AppPaths.Root);ShutdownMode=ShutdownMode.OnExplicitShutdown;
                 await LoginTests.RunAsync();Shutdown(0);return;
             }
+            if(e.Args.Contains("--vi-test"))
+            {
+                AppPaths.OverrideRoot=Path.GetFullPath(e.Args.ElementAtOrDefault(1)??"vi-test-data");
+                Directory.CreateDirectory(AppPaths.Root);ShutdownMode=ShutdownMode.OnExplicitShutdown;
+                await ViTests.RunAsync();Shutdown(0);return;
+            }
             if(e.Args.Contains("--ftp-delete-test"))
             {
                 AppPaths.OverrideRoot=Path.GetFullPath(e.Args.ElementAtOrDefault(1)??"ftp-delete-test-data");

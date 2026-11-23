@@ -11,12 +11,15 @@ public sealed partial class MainWindow
     private FtpWorkspace? ftpWorkspace;
     private SftpBrowserPanel? sftpBrowserPanel;
     private Grid terminalRegion=null!;
-    private Button ftpModeButton=null!,terminalModeButton=null!;
+    private Button ftpModeButton=null!,terminalModeButton=null!,viModeButton=null!;
+    private ViPracticeWorkspace? viWorkspace;
     private void UpdateModeSwitch()
     {
-        Ui.SetSegment(terminalModeButton,!ftpMode);Ui.SetSegment(ftpModeButton,ftpMode);
+        Ui.SetSegment(terminalModeButton,TerminalMode);Ui.SetSegment(ftpModeButton,ftpMode);Ui.SetSegment(viModeButton,viMode);
     }
-    private bool ftpMode;
+    private bool ftpMode,viMode;
+    /// <summary>True while terminals are on screen (neither FTP nor VI practice is shown).</summary>
+    private bool TerminalMode=>!ftpMode&&!viMode;
 
     private FrameworkElement WithFolderSidebar(FrameworkElement library)
     {
@@ -39,8 +42,12 @@ public sealed partial class MainWindow
         catch(OperationCanceledException){SetStatus("FTP 연결 취소됨");}
         catch(Exception error){SetStatus("FTP 접속 실패 · "+error.Message);Ui.Error(error);}
     }
-    private void ShowFtp(bool show)
+    private void ShowFtp(bool show)=>SetWorkMode(show?"ftp":"terminal");
+    private void ShowVi(bool show)=>SetWorkMode(show?"vi":"terminal");
+    private void SetWorkMode(string mode)
     {
+        bool show=mode=="ftp",vi=mode=="vi";
+        if(vi&&viWorkspace==null){viWorkspace=new ViPracticeWorkspace();root.Children.Add(viWorkspace);Grid.SetRow(viWorkspace,1);Grid.SetColumnSpan(viWorkspace,2);}
         if(show&&ftpWorkspace==null)
         {
             ftpWorkspace=new FtpWorkspace(this,store,ftpSession,ftpQueue,()=>sessions.Where(p=>p.Host.HasProcess).Select(p=>new TerminalFtpTarget(
@@ -48,16 +55,21 @@ public sealed partial class MainWindow
                 ()=>p.Host.HasProcess,command=>{if(!sessions.Contains(p)||!p.Host.HasProcess)throw new InvalidOperationException("선택한 터미널이 닫혔습니다.");ShowFtp(false);ShowSession(p);Dispatcher.BeginInvoke(()=>p.SetComposer(command),System.Windows.Threading.DispatcherPriority.ContextIdle);})).ToArray());
             root.Children.Add(ftpWorkspace);Grid.SetRow(ftpWorkspace,1);Grid.SetColumnSpan(ftpWorkspace,2);
         }
-        ftpMode=show;
-        if(show)focusMode=false;
-        terminalRegion.Visibility=show?Visibility.Collapsed:Visibility.Visible;
+        ftpMode=show;viMode=vi;
+        if(show||vi)focusMode=false;
+        terminalRegion.Visibility=TerminalMode?Visibility.Visible:Visibility.Collapsed;
         if(ftpWorkspace!=null)ftpWorkspace.Visibility=show?Visibility.Visible:Visibility.Collapsed;
+        if(viWorkspace!=null)viWorkspace.Visibility=vi?Visibility.Visible:Visibility.Collapsed;
         if(show)ftpWorkspace?.RefreshTerminalTargets();
         UpdateModeSwitch();
         ApplyChrome();RebuildTabs();
-        if(!show)Dispatcher.BeginInvoke(()=>{foreach(var pane in VisiblePanesForTest)pane.Host.RefreshViewport();RestoreTerminalFocus();});
+        if(vi){viWorkspace!.FocusEditor();SetStatus("VI 연습 · 설비나 파일에 연결하지 않는 연습용 편집기입니다. 명령이 안 먹히면 Esc 를 누르세요.");}
+        if(TerminalMode)Dispatcher.BeginInvoke(()=>{foreach(var pane in VisiblePanesForTest)pane.Host.RefreshViewport();RestoreTerminalFocus();});
     }
     internal void ShowFtpForTest(bool show)=>ShowFtp(show);
+    internal void ShowViForTest(bool show)=>ShowVi(show);
+    internal ViPracticeWorkspace? ViWorkspaceForTest=>viWorkspace;
+    internal bool TerminalModeForTest=>TerminalMode;
     internal FtpSession FtpSessionForTest=>ftpSession;
     internal FtpTransferQueue FtpQueueForTest=>ftpQueue;
     internal FtpWorkspace? FtpWorkspaceForTest=>ftpWorkspace;
